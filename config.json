@@ -1,9 +1,9 @@
 {
   "mapBounds": {
-    "X_min": 291,
-    "X_max": -51,
-    "Z_min": -1025,
-    "Z_max": -406
+   "X_min": -51,
+  "X_max": 291,
+  "Z_min": -1025,
+  "Z_max": -406
   },
   "mapImagePath": "/img/TopdownMap.png",
   "teams": [
