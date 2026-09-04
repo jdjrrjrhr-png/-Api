@@ -1005,7 +1005,7 @@ const MapView = {
 
     worldToMap(x, z) {
         // Read bounds from config.json (hardcoded here, matching config.json)
-        const X_min = -800, X_max = 800, Z_min = -800, Z_max = 800;
+       const X_min = 291, X_max = -51, Z_min = -1025, Z_max = -406;
         const left = ((x - X_min) / (X_max - X_min)) * 100;
         const top  = ((z - Z_min) / (Z_max - Z_min)) * 100;
         return { left: Math.min(100, Math.max(0, left)), top: Math.min(100, Math.max(0, top)) };
@@ -1016,7 +1016,7 @@ const MapView = {
         const badge   = document.getElementById('map-status-badge');
         if (!overlay) return;
 
-        if (playerCount < 10) {
+        if (playerCount < 0) {
             overlay.style.display = 'flex';
             overlay.textContent = `At least 10 players needed (${playerCount} online)`;
             if (badge) badge.textContent = 'Inactive';
