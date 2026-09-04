@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Documentation — Emergency Hamburg API</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+    --bg:       #08090f;
+    --surface:  #0f1120;
+    --surface2: #161829;
+    --border:   rgba(255,255,255,0.07);
+    --text:     #e2e6f0;
+    --muted:    #6b7280;
+    --accent:   #4f6ef7;
+    --accent2:  #38bdf8;
+    --danger:   #ef4444;
+    --success:  #22c55e;
+    --warn:     #f59e0b;
+    --radius:   10px;
+    --font:     'Inter', system-ui, sans-serif;
+    --font-h:   'Space Grotesk', sans-serif;
+    --font-code:'JetBrains Mono', monospace;
+    --sidebar-w: 260px;
+}
+[data-theme="light"] {
+    --bg:       #f5f6fa;
+    --surface:  #ffffff;
+    --surface2: #eef0f8;
+    --border:   rgba(0,0,0,0.08);
+    --text:     #111827;
+    --muted:    #6b7280;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    min-height: 100vh;
+}
+
+/* ─── SIDEBAR ─── */
+#sidebar {
+    width: var(--sidebar-w);
+    min-width: var(--sidebar-w);
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    height: 100vh;
+    position: sticky;
+    top: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.25s ease, width 0.25s ease;
+    z-index: 50;
+    flex-shrink: 0;
+}
+#sidebar.collapsed {
+    width: 0;
+    min-width: 0;
+    overflow: hidden;
+}
+.sidebar-header {
+    padding: 1.25rem 1rem;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+}
+.sidebar-brand {
+    font-family: var(--font-h);
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text);
+}
+.sidebar-nav { padding: 0.75rem 0.5rem; flex: 1; }
+.sidebar-section {
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    padding: 0.75rem 0.5rem 0.35rem;
+}
+.sidebar-link {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 10px;
+    border-radius: 7px;
+    font-size: 0.83rem;
+    color: var(--muted);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    text-decoration: none;
+}
+.sidebar-link:hover { background: var(--surface2); color: var(--text); }
+.sidebar-link.active { background: rgba(79,110,247,0.12); color: var(--accent); }
+.method-badge {
+    font-size: 0.65rem; font-weight: 700; font-family: var(--font-code);
+    padding: 2px 5px; border-radius: 4px; margin-left: auto;
+}
+.method-get  { background: rgba(34,197,94,0.15);  color: #22c55e; }
+.method-post { background: rgba(79,110,247,0.15); color: #4f6ef7; }
+.method-del  { background: rgba(239,68,68,0.15);  color: #ef4444; }
+.method-patch{ background: rgba(245,158,11,0.15); color: #f59e0b; }
+
+/* ─── MAIN ─── */
+#main {
+    flex: 1;
+    overflow-y: auto;
+    max-height: 100vh;
+}
+
+/* ─── TOP BAR ─── */
+#topbar {
+    position: sticky; top: 0; z-index: 40;
+    background: rgba(8,9,15,0.9);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+    height: 56px;
+    display: flex; align-items: center; justify-content: space-between;
+}
+.topbar-left { display: flex; align-items: center; gap: 12px; }
+.toggle-sidebar-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    width: 32px; height: 32px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    color: var(--muted);
+    transition: color 0.15s;
+    flex-shrink: 0;
+}
+.toggle-sidebar-btn:hover { color: var(--text); }
+.breadcrumb {
+    font-size: 0.82rem; color: var(--muted);
+}
+.breadcrumb a { color: var(--accent); text-decoration: none; }
+.topbar-right { display: flex; align-items: center; gap: 10px; }
+.theme-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 6px 12px;
+    font-size: 0.78rem;
+    color: var(--muted);
+    cursor: pointer;
+    transition: color 0.15s;
+    display: flex; align-items: center; gap: 5px;
+}
+.theme-btn:hover { color: var(--text); }
+
+/* ─── CONTENT ─── */
+.content {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 3rem 2rem 6rem;
+}
+.page-hero {
+    margin-bottom: 3rem;
+}
+.page-hero h1 {
+    font-family: var(--font-h);
+    font-size: 2rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: 0.75rem;
+}
+.page-hero p { color: var(--muted); line-height: 1.7; max-width: 580px; }
+
+/* ─── ENDPOINT SECTION ─── */
+.endpoint-section {
+    margin-bottom: 4rem;
+    scroll-margin-top: 70px;
+}
+.endpoint-section-title {
+    font-family: var(--font-h);
+    font-size: 1.15rem;
+    font-weight: 600;
+    margin-bottom: 1.25rem;
+    color: var(--text);
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 8px;
+}
+
+/* ─── ENDPOINT CARD ─── */
+.endpoint-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 1.25rem;
+    overflow: hidden;
+}
+.endpoint-head {
+    display: flex; align-items: center; gap: 10px;
+    padding: 1rem 1.25rem;
+    cursor: pointer;
+    user-select: none;
+}
+.endpoint-head:hover { background: var(--surface2); }
+.endpoint-method {
+    font-family: var(--font-code);
+    font-size: 0.7rem; font-weight: 700;
+    padding: 3px 8px; border-radius: 5px;
+    flex-shrink: 0;
+}
+.endpoint-path {
+    font-family: var(--font-code);
+    font-size: 0.83rem;
+    color: var(--text);
+    flex: 1;
+}
+.endpoint-summary { font-size: 0.8rem; color: var(--muted); }
+.endpoint-toggle {
+    color: var(--muted); transition: transform 0.2s;
+    flex-shrink: 0;
+}
+.endpoint-card.open .endpoint-toggle { transform: rotate(90deg); }
+
+.endpoint-body {
+    display: none;
+    padding: 0 1.25rem 1.25rem;
+    border-top: 1px solid var(--border);
+}
+.endpoint-card.open .endpoint-body { display: block; }
+
+.endpoint-desc {
+    font-size: 0.84rem;
+    color: var(--muted);
+    line-height: 1.6;
+    margin: 1rem 0;
+}
+
+/* ─── PARAMS TABLE ─── */
+.params-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    margin: 1rem 0 0.5rem;
+}
+table {
+    width: 100%; border-collapse: collapse;
+    font-size: 0.82rem; margin-bottom: 1rem;
+}
+th { text-align: left; padding: 6px 10px; color: var(--muted); font-weight: 500; font-size: 0.75rem; border-bottom: 1px solid var(--border); }
+td { padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+tr:last-child td { border-bottom: none; }
+.param-name { font-family: var(--font-code); font-size: 0.78rem; color: var(--accent2); }
+.param-type { font-family: var(--font-code); font-size: 0.75rem; color: var(--muted); }
+.required-tag {
+    display: inline-block;
+    background: rgba(239,68,68,0.1); color: var(--danger);
+    border-radius: 4px; padding: 1px 5px; font-size: 0.65rem; font-weight: 600;
+}
+.optional-tag {
+    display: inline-block;
+    background: var(--surface2); color: var(--muted);
+    border-radius: 4px; padding: 1px 5px; font-size: 0.65rem;
+}
+
+/* ─── CODE BLOCK ─── */
+.code-block {
+    position: relative;
+    background: #0d0e1a;
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 8px;
+    overflow: hidden;
+    margin: 1rem 0;
+}
+.code-block-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 14px;
+    background: rgba(255,255,255,0.02);
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    font-size: 0.72rem; color: var(--muted);
+}
+.copy-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 3px 10px;
+    font-size: 0.72rem; color: var(--muted);
+    cursor: pointer; transition: color 0.15s;
+}
+.copy-btn:hover { color: var(--text); }
+.copy-btn.copied { color: var(--success); }
+pre {
+    padding: 1rem 1.25rem;
+    overflow-x: auto;
+    font-family: var(--font-code);
+    font-size: 0.82rem;
+    line-height: 1.7;
+}
+/* Syntax colors */
+.kw   { color: #c084fc; }
+.str  { color: #86efac; }
+.num  { color: #fdba74; }
+.cmt  { color: #4b5563; font-style: italic; }
+.fn   { color: #60a5fa; }
+.key  { color: #38bdf8; }
+.op   { color: #94a3b8; }
+.url  { color: #fbbf24; }
+
+/* ─── INFO BOX ─── */
+.info-box {
+    display: flex; gap: 10px;
+    background: rgba(79,110,247,0.08);
+    border: 1px solid rgba(79,110,247,0.2);
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-size: 0.83rem;
+    color: var(--text);
+    line-height: 1.6;
+    margin: 1rem 0;
+}
+.info-box.warn-box {
+    background: rgba(245,158,11,0.08);
+    border-color: rgba(245,158,11,0.2);
+}
+.info-box.danger-box {
+    background: rgba(239,68,68,0.08);
+    border-color: rgba(239,68,68,0.2);
+}
+.info-box svg { flex-shrink: 0; margin-top: 2px; }
+
+/* ─── NOT-A-DEV SECTION ─── */
+.not-dev-card {
+    background: linear-gradient(135deg, rgba(79,110,247,0.08), rgba(56,189,248,0.05));
+    border: 1px solid rgba(79,110,247,0.2);
+    border-radius: var(--radius);
+    padding: 2rem;
+    text-align: center;
+    margin: 3rem 0;
+}
+.not-dev-card h2 { font-family: var(--font-h); font-size: 1.1rem; margin-bottom: 0.5rem; }
+.not-dev-card p  { font-size: 0.84rem; color: var(--muted); margin-bottom: 1rem; line-height: 1.6; }
+.not-dev-card a  { color: var(--accent); font-weight: 500; cursor: pointer; }
+.not-dev-card a:hover { text-decoration: underline; }
+
+/* ─── RESPONSIVE ─── */
+@media (max-width: 768px) {
+    #sidebar { position: fixed; height: 100vh; }
+    #sidebar:not(.collapsed) { box-shadow: 0 0 40px rgba(0,0,0,0.5); }
+}
+</style>
+</head>
+<body>
+
+<!-- ─── SIDEBAR ─── -->
+<aside id="sidebar">
+    <div class="sidebar-header">
+        <div class="sidebar-brand">EH API Docs</div>
+        <a href="/Api" style="font-size:0.75rem;color:var(--accent);text-decoration:none">&larr; Home</a>
+    </div>
+    <nav class="sidebar-nav">
+
+        <div class="sidebar-section">Overview</div>
+        <a class="sidebar-link active" onclick="scrollTo('intro')">Introduction</a>
+        <a class="sidebar-link" onclick="scrollTo('auth')">Authentication</a>
+        <a class="sidebar-link" onclick="scrollTo('not-dev')">Not a developer?</a>
+
+        <div class="sidebar-section">Player Events</div>
+        <a class="sidebar-link" onclick="scrollTo('tracking')">
+            Join / Leave <span class="method-badge method-post">POST</span>
+        </a>
+        <a class="sidebar-link" onclick="scrollTo('events')">
+            Game Events <span class="method-badge method-post">POST</span>
+        </a>
+
+        <div class="sidebar-section">Punishments</div>
+        <a class="sidebar-link" onclick="scrollTo('ban')">Ban / Unban</a>
+        <a class="sidebar-link" onclick="scrollTo('kick')">Kick</a>
+        <a class="sidebar-link" onclick="scrollTo('warn')">Warn / Unwarn</a>
+        <a class="sidebar-link" onclick="scrollTo('freeze')">Freeze Toggle</a>
+
+        <div class="sidebar-section">Server Management</div>
+        <a class="sidebar-link" onclick="scrollTo('heartbeat')">Heartbeat</a>
+        <a class="sidebar-link" onclick="scrollTo('commands')">Issue Commands</a>
+        <a class="sidebar-link" onclick="scrollTo('shutdown')">Shutdown</a>
+        <a class="sidebar-link" onclick="scrollTo('message')">Broadcast Message</a>
+        <a class="sidebar-link" onclick="scrollTo('map')">Map &amp; Positions</a>
+        <a class="sidebar-link" onclick="scrollTo('inventory')">Inventory</a>
+
+        <div class="sidebar-section">Audit</div>
+        <a class="sidebar-link" onclick="scrollTo('audit')">Audit Logs</a>
+
+        <div class="sidebar-section">Roblox Module</div>
+        <a class="sidebar-link" onclick="scrollTo('module')">Module Reference</a>
+        <a class="sidebar-link" onclick="scrollTo('discord')">Discord Integration</a>
+    </nav>
+</aside>
+
+<!-- ─── MAIN ─── -->
+<div id="main">
+    <div id="topbar">
+        <div class="topbar-left">
+            <button class="toggle-sidebar-btn" onclick="toggleSidebar()" title="Toggle sidebar">
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+            </button>
+            <span class="breadcrumb"><a href="/Api">Home</a> / Documentation</span>
+        </div>
+        <div class="topbar-right">
+            <button class="theme-btn" onclick="toggleTheme()">
+                <svg id="theme-icon" xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                <span id="theme-label">Light mode</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="content">
+
+        <!-- INTRO -->
+        <div class="page-hero">
+            <h1>API Documentation</h1>
+            <p>The Emergency Hamburg API provides real-time player tracking, moderation commands, audit logging, and Discord integration for authorized servers. All endpoints require authentication.</p>
+        </div>
+
+        <!-- INTRO SECTION -->
+        <div id="intro" class="endpoint-section">
+            <div class="endpoint-section-title">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                Introduction
+            </div>
+            <div class="info-box">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4f6ef7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                <div>All API requests must be sent to <strong>https://api-production-59e1.up.railway.app</strong>. Roblox server requests use the <code>ApiToken</code> Bearer header. Dashboard actions are authenticated via Roblox OAuth session.</div>
+            </div>
+            <p style="color:var(--muted);font-size:0.84rem;line-height:1.7;margin-bottom:1rem">Two categories of callers exist: <strong>Roblox servers</strong> (authenticated with Bearer token) and <strong>admin dashboard users</strong> (authenticated via Roblox OAuth). The dashboard handles the OAuth flow automatically.</p>
+        </div>
+
+        <!-- AUTH -->
+        <div id="auth" class="endpoint-section">
+            <div class="endpoint-section-title">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                Authentication
+            </div>
+
+            <div class="endpoint-card" id="ep-auth-header">
+                <div class="endpoint-head" onclick="toggleEp(this)">
+                    <span class="endpoint-method method-post" style="background:rgba(79,110,247,0.15);color:#4f6ef7">ANY</span>
+                    <span class="endpoint-path">Authorization: Bearer &lt;ApiToken&gt;</span>
+                    <span class="endpoint-summary">Roblox server requests</span>
+                    <svg class="endpoint-toggle" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                </div>
+                <div class="endpoint-body">
+                    <p class="endpoint-desc">Every request from the Roblox server must include this header. The <code>ApiToken</code> is set in your server's <code>.env</code> file and inside the Lua module.</p>
+                    <div class="code-block">
+                        <div class="code-block-header"><span>JavaScript</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+                        <pre><span class="kw">const</span> response = <span class="kw">await</span> <span class="fn">fetch</span>(<span class="str">"https://api-production-59e1.up.railway.app/api/tracking/join"</span>, {
+  <span class="key">method</span>: <span class="str">"POST"</span>,
+  <span class="key">headers</span>: {
+    <span class="str">"Content-Type"</span>: <span class="str">"application/json"</span>,
+    <span class="str">"Authorization"</span>: <span class="str">"Bearer YOUR_API_TOKEN"</span>
+  },
+  <span class="key">body</span>: <span class="fn">JSON.stringify</span>({ <span class="key">userId</span>: <span class="num">123456789</span>, <span class="key">username</span>: <span class="str">"PlayerName"</span> })
+});</pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- NOT A DEVELOPER -->
+        <div id="not-dev" class="not-dev-card">
+            <h2>Not a developer?</h2>
+            <p>You don't need to write a single line of code. Our dashboard gives you every tool this API offers — moderation, audit logs, player map, and chat — through a clean, easy-to-use interface with more features than the raw API. It is <em>significantly</em> easier and has more features than calling these endpoints manually.</p>
+            <p>Head to the <a onclick="goToDashboard()">dashboard</a> — it's faster, cleaner, and requires no technical knowledge.</p>
+        </div>
+
+        <!-- PLAYER TRACKING -->
+        <div id="tracking" class="endpoint-section">
+            <div class="endpoint-section-title">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                Player Join / Leave
+            </div>
+
+            <div class="endpoint-card">
+                <div class="endpoint-head" onclick="toggleEp(this)">
+                    <span class="endpoint-method method-post">POST</span>
+                    <span class="endpoint-path">/api/tracking/join</span>
+                    <span class="endpoint-summary">Report player joined server</span>
+                    <svg class="endpoint-toggle" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                </div>
+                <div class="endpoint-body">
+                    <p class="endpoint-desc">Called by the Roblox server when a player joins. Adds the player to global tracking and pushes a player_added audit log entry.</p>
+                    <p class="params-title">Body Parameters</p>
+                    <table>
+                        <tr><th>Name</th><th>Type</th><th>Required</th><th>Description</th></tr>
+                        <tr><td class="param-name">userId</td><td class="param-type">number</td><td><span class="required-tag">required</span></td><td>Roblox user ID</td></tr>
+                        <tr><td class="param-name">username</td><td class="param-type">string</td><td><span class="required-tag">required</span></td><td>Roblox username</td></tr>
+                        <tr><td class="param-name">serverCode</td><td class="param-type">string</td><td><span class="required-tag">required</span></td><td>Server API key</td></tr>
+                        <tr><td class="param-name">jobId</td><td class="param-type">string</td><td><span class="optional-tag">optional</span></td><td>Roblox JobId</td></tr>
+                    </table>
+                    <div class="code-block">
+                        <div class="code-block-header"><span>JavaScript</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+                        <pre><span class="kw">const</span> res = <span class="kw">await</span> <span class="fn">fetch</span>(<span class="str">"/api/tracking/join"</span>, {
+  <span class="key">method</span>: <span class="str">"POST"</span>,
+  <span class="key">headers</span>: { <span class="str">"Content-Type"</span>: <span class="str">"application/json"</span>, <span class="str">"Authorization"</span>: <span class="str">"Bearer TOKEN"</span> },
+  <span class="key">body</span>: <span class="fn">JSON.stringify</span>({
+    <span class="key">userId</span>: <span class="num">123456789</span>,
+    <span class="key">username</span>: <span class="str">"PlayerName"</span>,
+    <span class="key">serverCode</span>: <span class="str">"b1zw-z1ld-24s1-dm23"</span>,
+    <span class="key">jobId</span>: <span class="str">"abc123jobId"</span>
+  })
+});
+<span class="cmt">// Response: { success: true }</span></pre>
+                    </div>
+                </div>
+            </div>
+
+            <div class="endpoint-card">
+                <div class="endpoint-head" onclick="toggleEp(this)">
+                    <span class="endpoint-method method-post">POST</span>
+                    <span class="endpoint-path">/api/tracking/leave</span>
+                    <span class="endpoint-summary">Report player left server</span>
+                    <svg class="endpoint-toggle" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                </div>
+                <div class="endpoint-body">
+                    <p class="endpoint-desc">Called when a player leaves. Calculates total session duration and removes tracking entry. Pushes player_left audit log.</p>
+                    <p class="params-title">Body Parameters</p>
+                    <table>
+                        <tr><th>Name</th><th>Type</th><th>Required</th><th>Description</th></tr>
+                        <tr><td class="param-name">userId</td><td class="param-type">number</td><td><span class="required-tag">required</span></td><td>Roblox user ID</td></tr>
+                        <tr><td class="param-name">username</td><td class="param-type">string</td><td><span class="required-tag">required</span></td><td>Roblox username</td></tr>
+                        <tr><td class="param-name">serverCode</td><td class="param-type">string</td><td><span class="required-tag">required</span></td><td>Server API key</td></tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- EVENTS -->
+        <div id="events" class="endpoint-section">
+            <div class="endpoint-section-title">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                Game Events
+            </div>
+            <div class="info-box">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4f6ef7" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                <div>Game events are Roblox-only; they are called from your server scripts and are logged to the audit trail. They are <strong>not</strong> available from the dashboard or Discord bot.</div>
+            </div>
+
+            <!-- shots -->
+            <div class="endpoint-card">
+                <div class="endpoint-head" onclick="toggleEp(this)">
+                    <span class="endpoint-method method-post">POST</span>
+                    <span class="endpoint-path">/api/tracking/shots</span>
+                    <span class="endpoint-summary">Log shots fired event</span>
+                    <svg class="endpoint-toggle" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                </div>
+                <div class="endpoint-body">
+                    <p class="params-title">Body Parameters</p>
+                    <table>
+                        <tr><th>Name</th><th>Type</th><th>Required</th><th>Description</th></tr>
+                        <tr><td class="param-name">serverCode</td><td class="param-type">string</td><td><span class="required-tag">required</span></td><td>Server API key</td></tr>
+                        <tr><td class="param-name">shooterName</td><td class="param-type">string</td><td><span class="required-tag">required</span></td><td>Shooter username</td></tr>
+                        <tr><td class="param-name">shooterUserId</td><td class="param-type">number</td><td><span class="required-tag">required</span></td><td>Shooter user ID</td></tr>
+                        <tr><td class="param-name">targetName</td><td class="param-type">string</td><td><span class="optional-tag">optional</span></td><td>Target username</td></tr>
+                        <tr><td class="param-name">targetUserId</td><td class="param-type">number</td><td><span class="optional-tag">optional</span></td><td>Target user ID</td></tr>
+                        <tr><td class="param-name">weapon</td><td class="param-type">string</td><td><span class="required-tag">required</span></td><td>Weapon name</td></tr>
+                        <tr><td class="param-name">posX / posZ</td><td class="param-type">number</td><td><span class="optional-tag">optional</span></td><td>World position</td></tr>
+                    </table>
+                </div>
+            </div>
+
+            <!-- other events listed compactly -->
+            <div class="endpoint-card">
+                <div class="endpoint-head" onclick="toggleEp(this)">
+                    <span class="endpoint-method method-post">POST</span>
+                    <span class="endpoint-path">/api/tracking/robbery</span>
+                    <span class="endpoint-summary">Log robbery started</span>
+                    <svg class="endpoint-toggle" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                </div>
+                <div class="endpoint-body">
+                    <p class="params-title">Body Parameters</p>
+                    <table>
+                        <tr><th>Name</th><th>Type</th><th>Required</th></tr>
+                        <tr><td class="param-name">serverCode</td><td class="param-type">string</td><td><span class="required-tag">required</span></td></tr>
+                        <tr><td class="param-name">suspects</td><td class="param-type">array [{name,userId}]</td><td><span class="required-tag">required</span></td></tr>
+                        <tr><td class="param-name">robberyName</td><td class="param-type">string</td><td><span class="required-tag">required</span></td></tr>
+                        <tr><td class="param-name">robberyType</td><td class="param-type">string</td><td><span class="optional-tag">optional</span></td></tr>
+                        <tr><td class="param-name">posX / posZ</td><td class="param-type">number</td><td><span class="optional-tag">optional</span></td></tr>
+                    </table>
+                </div>
+            </div>
+
+            <div class="endpoint-card">
+                <div class="endpoint-head" onclick="toggleEp(this)">
+                    <span class="endpoint-method method-post">POST</span>
+                    <span class="endpoint-path">/api/tracking/teamchange</span>
+                    <span class="endpoint-summary">Player team changed</span>
+                    <svg class="endpoint-toggle" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                </div>
+                <div class="endpoint-body">
+                    <table>
+                        <tr><th>Name</th><th>Type</th><th>Required</th></tr>
+                        <tr><td class="param-name">serverCode</td><td class="param-type">string</td><td><span class="required-tag">required</span></td></tr>
+                        <tr><td class="param-name">playerName</td><td class="param-type">string</td><td><span class="required-tag">required</span></td></tr>
+                        <tr><td class="param-name">playerUserId</td><td class="param-type">number</td><td><span class="required-tag">required</span></td></tr>
+                        <tr><td class="param-name">oldTeam</td><td class="param-type">string</td><td><span class="required-tag">required</span></td></tr>
+                        <tr><td class="param-name">newTeam</td><td class="param-type">string</td><td><span class="required-tag">required</span></td></tr>
+                        <tr><td class="param-name">xpGiven</td><td class="param-type">number</td><td><span class="optional-tag">optional</span></td></tr>
+                    </table>
+                </div>
+            </div>
+
+            <div class="endpoint-card">
+                <div class="endpoint-head" onclick="toggleEp(this)">
+                    <span class="endpoint-method method-post">POST</span>
+                    <span class="endpoint-path">/api/tracking/playerdown</span>
+                    <span class="endpoint-summary">Player downed / killed</span>
+                    <svg class="endpoint-toggle" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                </div>
+                <div class="endpoint-body">
+                    <table>
+                        <tr><th>Name</th><th>Type</th><th>Required</th></tr>
+                        <tr><td class="param-name">serverCode</td><td class="param-type">string</td><td><span class="required-tag">required</span></td></tr>
+                        <tr><td class="param-name">playerName / playerUserId</td><td class="param-type">string / number</td><td><span class="required-tag">required</span></td></tr>
+                        <tr><td class="param-name">playerTeam</td><td class="param-type">string</td><td><span class="optional-tag">optional</span></td></tr>
+                        <tr><td class="param-name">killerName / killerId</td><td class="param-type">string / number</td><td><span class="optional-tag">optional</span></td></tr>
+                        <tr><td class="param-name">weaponName</td><td class="param-type">string</td><td><span class="optional-tag">optional</span></td></tr>
+                        <tr><td class="param-name">posX / posZ</td><td class="param-type">number</td><td><span class="optional-tag">optional</span></td></tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- BAN -->
+        <div id="ban" class="endpoint-section">
+            <div class="endpoint-section-title">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+                Ban / Unban
+            </div>
+            <div class="info-box warn-box">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                <div>Bans are stored in-memory on the API and replicated to Roblox DataStore via the <code>ban</code> command. A ban with <code>duration: -1</code> is permanent. Duration is always in <strong>seconds</strong>.</div>
+            </div>
+            <div class="endpoint-card">
+                <div class="endpoint-head" onclick="toggleEp(this)">
+                    <span class="endpoint-method method-post">POST</span>
+                    <span class="endpoint-path">/api/punishments/ban</span>
+                    <span class="endpoint-summary">Ban a player</span>
+                    <svg class="endpoint-toggle" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                </div>
+                <div class="endpoint-body">
+                    <p class="params-title">Body Parameters</p>
+                    <table>
+                        <tr><th>Name</th><th>Type</th><th>Required</th><th>Description</th></tr>
+                        <tr><td class="param-name">serverCode</td><td class="param-type">string</td><td><span class="optional-tag">optional</span></td><td>Live server to issue kick command in</td></tr>
+                        <tr><td class="param-name">bannedUserName</td><td class="param-type">string</td><td><span class="required-tag">required</span></td><td>Username of player to ban</td></tr>
+                        <tr><td class="param-name">bannedUserId</td><td class="param-type">number</td><td><span class="required-tag">required</span></td><td>User ID of player to ban</td></tr>
+                        <tr><td class="param-name">responsibleId</td><td class="param-type">number</td><td><span class="required-tag">required</span></td><td>Admin's user ID (senderId)</td></tr>
+                        <tr><td class="param-name">responsibleUsername</td><td class="param-type">string</td><td><span class="required-tag">required</span></td><td>Admin's username</td></tr>
+                        <tr><td class="param-name">duration</td><td class="param-type">number</td><td><span class="required-tag">required</span></td><td>Seconds, or -1 for permanent</td></tr>
+                        <tr><td class="param-name">reason</td><td class="param-type">string</td><td><span class="optional-tag">optional</span></td><td>Ban reason</td></tr>
+                    </table>
+                    <div class="code-block">
+                        <div class="code-block-header"><span>JavaScript — Ban for 24 hours</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+                        <pre><span class="kw">const</span> res = <span class="kw">await</span> <span class="fn">fetch</span>(<span class="str">"/api/punishments/ban"</span>, {
+  <span class="key">method</span>: <span class="str">"POST"</span>,
+  <span class="key">headers</span>: { <span class="str">"Content-Type"</span>: <span class="str">"application/json"</span>, <span class="str">"Authorization"</span>: <span class="str">"Bearer TOKEN"</span> },
+  <span class="key">body</span>: <span class="fn">JSON.stringify</span>({
+    <span class="key">serverCode</span>: <span class="str">"b1zw-z1ld-24s1-dm23"</span>,
+    <span class="key">bannedUserName</span>: <span class="str">"BadPlayer"</span>,
+    <span class="key">bannedUserId</span>: <span class="num">987654321</span>,
+    <span class="key">responsibleId</span>: <span class="num">123456789</span>,
+    <span class="key">responsibleUsername</span>: <span class="str">"AdminName"</span>,
+    <span class="key">duration</span>: <span class="num">86400</span>, <span class="cmt">// 24 hours in seconds</span>
+    <span class="key">reason</span>: <span class="str">"RDM / Exploiting"</span>
+  })
+});
+<span class="kw">const</span> { caseId } = <span class="kw">await</span> res.<span class="fn">json</span>();
+<span class="cmt">// Store caseId for future unban reference</span></pre>
+                    </div>
+                </div>
+            </div>
+
+            <div class="endpoint-card">
+                <div class="endpoint-head" onclick="toggleEp(this)">
+                    <span class="endpoint-method method-post">POST</span>
+                    <span class="endpoint-path">/api/punishments/unban</span>
+                    <span class="endpoint-summary">Lift an active ban</span>
+                    <svg class="endpoint-toggle" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                </div>
+                <div class="endpoint-body">
+                    <table>
+                        <tr><th>Name</th><th>Type</th><th>Required</th></tr>
+                        <tr><td class="param-name">userId</td><td class="param-type">number</td><td><span class="required-tag">required</span></td></tr>
+                        <tr><td class="param-name">responsibleUsername</td><td class="param-type">string</td><td><span class="optional-tag">optional</span></td></tr>
+                        <tr><td class="param-name">reason</td><td class="param-type">string</td><td><span class="optional-tag">optional</span></td></tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- KICK -->
+        <div id="kick" class="endpoint-section">
+            <div class="endpoint-section-title">Kick</div>
+            <div class="endpoint-card">
+                <div class="endpoint-head" onclick="toggleEp(this)">
+                    <span class="endpoint-method method-post">POST</span>
+                    <span class="endpoint-path">/api/punishments/kick</span>
+                    <span class="endpoint-summary">Kick a player from a live server</span>
+                    <svg class="endpoint-toggle" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                </div>
+                <div class="endpoint-body">
+                    <table>
+                        <tr><th>Name</th><th>Type</th><th>Required</th></tr>
+                        <tr><td class="param-name">serverCode</td><td class="param-type">string</td><td><span class="required-tag">required</span></td></tr>
+                        <tr><td class="param-name">target</td><td class="param-type">string</td><td><span class="required-tag">required</span></td></tr>
+                        <tr><td class="param-name">targetId</td><td class="param-type">number</td><td><span class="optional-tag">optional</span></td></tr>
+                        <tr><td class="param-name">reason</td><td class="param-type">string</td><td><span class="optional-tag">optional</span></td></tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- WARN -->
+        <div id="warn" class="endpoint-section">
+            <div class="endpoint-section-title">Warn / Unwarn</div>
+            <div class="endpoint-card">
+                <div class="endpoint-head" onclick="toggleEp(this)">
+                    <span class="endpoint-method method-post">POST</span>
+                    <span class="endpoint-path">/api/punishments/warn</span>
+                    <span class="endpoint-summary">Warn a player</span>
+                    <svg class="endpoint-toggle" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                </div>
+                <div class="endpoint-body">
+                    <p class="endpoint-desc">Warn case IDs are 6-character alphanumeric strings, e.g. <code>aB3xZ9</code>. Pass them to <code>/unwarn</code> to remove specific warnings.</p>
+                    <table>
+                        <tr><th>Name</th><th>Type</th><th>Required</th></tr>
+                        <tr><td class="param-name">serverCode</td><td class="param-type">string</td><td><span class="optional-tag">optional</span></td></tr>
+                        <tr><td class="param-name">toWho</td><td class="param-type">string</td><td><span class="required-tag">required</span></td></tr>
+                        <tr><td class="param-name">toWhoId</td><td class="param-type">number</td><td><span class="required-tag">required</span></td></tr>
+                        <tr><td class="param-name">responsibleId</td><td class="param-type">number</td><td><span class="required-tag">required</span></td></tr>
+                        <tr><td class="param-name">responsibleUsername</td><td class="param-type">string</td><td><span class="required-tag">required</span></td></tr>
+                        <tr><td class="param-name">reason</td><td class="param-type">string</td><td><span class="required-tag">required</span></td></tr>
+                        <tr><td class="param-name">time</td><td class="param-type">number</td><td><span class="optional-tag">optional</span></td></tr>
+                    </table>
+                    <div class="code-block">
+                        <div class="code-block-header"><span>JavaScript — Warn and fetch all warns</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+                        <pre><span class="cmt">// Issue warn</span>
+<span class="kw">const</span> warnRes = <span class="kw">await</span> <span class="fn">fetch</span>(<span class="str">"/api/punishments/warn"</span>, {
+  <span class="key">method</span>: <span class="str">"POST"</span>,
+  <span class="key">headers</span>: { <span class="str">"Content-Type"</span>: <span class="str">"application/json"</span>, <span class="str">"Authorization"</span>: <span class="str">"Bearer TOKEN"</span> },
+  <span class="key">body</span>: <span class="fn">JSON.stringify</span>({
+    <span class="key">toWho</span>: <span class="str">"PlayerName"</span>, <span class="key">toWhoId</span>: <span class="num">123456</span>,
+    <span class="key">responsibleId</span>: <span class="num">789</span>, <span class="key">responsibleUsername</span>: <span class="str">"Admin"</span>,
+    <span class="key">reason</span>: <span class="str">"Swearing / Insults"</span>
+  })
+});
+<span class="kw">const</span> { caseId } = <span class="kw">await</span> warnRes.<span class="fn">json</span>();
+
+<span class="cmt">// Fetch all warns for a player</span>
+<span class="kw">const</span> warns = <span class="kw">await</span> <span class="fn">fetch</span>(<span class="str">`/api/punishments/warns/123456`</span>, {
+  <span class="key">headers</span>: { <span class="str">"Authorization"</span>: <span class="str">"Bearer TOKEN"</span> }
+}).<span class="fn">then</span>(r => r.<span class="fn">json</span>());</pre>
+                    </div>
+                </div>
+            </div>
+            <div class="endpoint-card">
+                <div class="endpoint-head" onclick="toggleEp(this)">
+                    <span class="endpoint-method method-post">POST</span>
+                    <span class="endpoint-path">/api/punishments/unwarn</span>
+                    <span class="endpoint-summary">Remove a warning by case ID</span>
+                    <svg class="endpoint-toggle" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                </div>
+                <div class="endpoint-body">
+                    <table>
+                        <tr><th>Name</th><th>Type</th><th>Required</th></tr>
+                        <tr><td class="param-name">whoId</td><td class="param-type">number</td><td><span class="required-tag">required</span></td></tr>
+                        <tr><td class="param-name">caseId</td><td class="param-type">string</td><td><span class="required-tag">required</span></td></tr>
+                        <tr><td class="param-name">who</td><td class="param-type">string</td><td><span class="optional-tag">optional</span></td></tr>
+                        <tr><td class="param-name">serverCode</td><td class="param-type">string</td><td><span class="optional-tag">optional</span></td></tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- FREEZE -->
+        <div id="freeze" class="endpoint-section">
+            <div class="endpoint-section-title">Freeze Toggle</div>
+            <div class="endpoint-card">
+                <div class="endpoint-head" onclick="toggleEp(this)">
+                    <span class="endpoint-method method-post">POST</span>
+                    <span class="endpoint-path">/api/punishments/freeze</span>
+                    <span class="endpoint-summary">Toggle freeze state for a player</span>
+                    <svg class="endpoint-toggle" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                </div>
+                <div class="endpoint-body">
+                    <p class="endpoint-desc">Toggles freeze: if the player is frozen, this unfreezes them; if not frozen, freezes them. Returns which action was taken.</p>
+                    <table>
+                        <tr><th>Name</th><th>Type</th><th>Required</th></tr>
+                        <tr><td class="param-name">serverCode</td><td class="param-type">string</td><td><span class="required-tag">required</span></td></tr>
+                        <tr><td class="param-name">targetId</td><td class="param-type">number</td><td><span class="required-tag">required</span></td></tr>
+                        <tr><td class="param-name">targetUsername</td><td class="param-type">string</td><td><span class="optional-tag">optional</span></td></tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- HEARTBEAT -->
+        <div id="heartbeat" class="endpoint-section">
+            <div class="endpoint-section-title">Heartbeat</div>
+            <div class="endpoint-card">
+                <div class="endpoint-head" onclick="toggleEp(this)">
+                    <span class="endpoint-method method-post">POST</span>
+                    <span class="endpoint-path">/api/servers/:serverCode/heartbeat</span>
+                    <span class="endpoint-summary">Send live player state</span>
+                    <svg class="endpoint-toggle" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                </div>
+                <div class="endpoint-body">
+                    <p class="endpoint-desc">The core loop. Called every 2 seconds by the Roblox server. Returns pending commands for the server to execute.</p>
+                    <div class="code-block">
+                        <div class="code-block-header"><span>JavaScript</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+                        <pre><span class="kw">const</span> res = <span class="kw">await</span> <span class="fn">fetch</span>(<span class="str">`/api/servers/${serverCode}/heartbeat`</span>, {
+  <span class="key">method</span>: <span class="str">"POST"</span>,
+  <span class="key">headers</span>: { <span class="str">"Content-Type"</span>: <span class="str">"application/json"</span>, <span class="str">"Authorization"</span>: <span class="str">"Bearer TOKEN"</span> },
+  <span class="key">body</span>: <span class="fn">JSON.stringify</span>({
+    <span class="key">playersList</span>: [
+      { <span class="key">name</span>: <span class="str">"Player1"</span>, <span class="key">userId</span>: <span class="num">111</span>, <span class="key">team</span>: <span class="str">"Police"</span>, <span class="key">timeInGame</span>: <span class="num">300</span>, <span class="key">isFrozen</span>: <span class="kw">false</span>, <span class="key">inVehicle</span>: <span class="kw">true</span>, <span class="key">pos</span>: { <span class="key">x</span>: <span class="num">120</span>, <span class="key">z</span>: <span class="num">-40</span> } }
+    ]
+  })
+});
+<span class="kw">const</span> { commands } = <span class="kw">await</span> res.<span class="fn">json</span>();
+<span class="cmt">// Process each command: { action, target, targetId, reason, duration, senderName }</span></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- COMMANDS -->
+        <div id="commands" class="endpoint-section">
+            <div class="endpoint-section-title">Issue Commands</div>
+            <div class="endpoint-card">
+                <div class="endpoint-head" onclick="toggleEp(this)">
+                    <span class="endpoint-method method-post">POST</span>
+                    <span class="endpoint-path">/api/servers/:serverCode/commands</span>
+                    <span class="endpoint-summary">Issue a command to a live server</span>
+                    <svg class="endpoint-toggle" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                </div>
+                <div class="endpoint-body">
+                    <p class="endpoint-desc">Queues a command that the Roblox server will pick up on its next heartbeat. Requires on-duty status for most actions.</p>
+                    <p class="params-title">Supported Actions</p>
+                    <table>
+                        <tr><th>Action</th><th>Extra fields</th></tr>
+                        <tr><td class="param-name">kick</td><td><code>target</code>, <code>targetId</code>, <code>reason</code></td></tr>
+                        <tr><td class="param-name">ban</td><td><code>target</code>, <code>targetId</code>, <code>reason</code>, <code>duration</code></td></tr>
+                        <tr><td class="param-name">freeze / unfreeze</td><td><code>target</code></td></tr>
+                        <tr><td class="param-name">bring</td><td><code>target</code></td></tr>
+                        <tr><td class="param-name">to</td><td><code>target</code></td></tr>
+                        <tr><td class="param-name">warn</td><td><code>target</code>, <code>reason</code>, <code>caseId</code></td></tr>
+                        <tr><td class="param-name">message</td><td><code>target</code> (@everyone / @me / username), <code>reason</code> (the message)</td></tr>
+                        <tr><td class="param-name">shutdown</td><td>—</td></tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- SHUTDOWN -->
+        <div id="shutdown" class="endpoint-section">
+            <div class="endpoint-section-title">Shutdown</div>
+            <div class="endpoint-card">
+                <div class="endpoint-head" onclick="toggleEp(this)">
+                    <span class="endpoint-method method-post">POST</span>
+                    <span class="endpoint-path">/api/servers/:serverCode/schedule-shutdown</span>
+                    <span class="endpoint-summary">Schedule a shutdown at a future time</span>
+                    <svg class="endpoint-toggle" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                </div>
+                <div class="endpoint-body">
+                    <table>
+                        <tr><th>Name</th><th>Type</th><th>Description</th></tr>
+                        <tr><td class="param-name">targetTimestamp</td><td class="param-type">number</td><td>Unix timestamp (ms) of desired shutdown time</td></tr>
+                        <tr><td class="param-name">senderId</td><td class="param-type">number</td><td>Admin user ID</td></tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- MAP -->
+        <div id="map" class="endpoint-section">
+            <div class="endpoint-section-title">Map &amp; Positions</div>
+            <div class="endpoint-card">
+                <div class="endpoint-head" onclick="toggleEp(this)">
+                    <span class="endpoint-method method-post">POST</span>
+                    <span class="endpoint-path">/api/servers/:serverCode/positions</span>
+                    <span class="endpoint-summary">Stream player positions for top-down map</span>
+                    <svg class="endpoint-toggle" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                </div>
+                <div class="endpoint-body">
+                    <p class="endpoint-desc">Only send this if <strong>at least one admin is watching the dashboard</strong> for this server AND the server has ≥ 10 players. Send every 5 seconds. Only include players who moved ≥ 7 studs since the last packet.</p>
+                    <div class="code-block">
+                        <div class="code-block-header"><span>Map normalization algorithm</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+                        <pre><span class="cmt">// Convert game coordinates to map image percentages</span>
+<span class="kw">function</span> <span class="fn">worldToMap</span>(x, z, bounds) {
+  <span class="kw">const</span> left = ((x - bounds.X_min) / (bounds.X_max - bounds.X_min)) * <span class="num">100</span>;
+  <span class="kw">const</span> top  = ((z - bounds.Z_min) / (bounds.Z_max - bounds.Z_min)) * <span class="num">100</span>;
+  <span class="kw">return</span> { left, top }; <span class="cmt">// Use as CSS left% and top% on the image</span>
+}
+
+<span class="cmt">// Example</span>
+<span class="kw">const</span> bounds = { X_min: -<span class="num">800</span>, X_max: <span class="num">800</span>, Z_min: -<span class="num">800</span>, Z_max: <span class="num">800</span> };
+<span class="kw">const</span> pos = <span class="fn">worldToMap</span>(<span class="num">320</span>, -<span class="num">120</span>, bounds);
+<span class="cmt">// → { left: 70, top: 42.5 }</span></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- AUDIT -->
+        <div id="audit" class="endpoint-section">
+            <div class="endpoint-section-title">Audit Logs</div>
+            <div class="endpoint-card">
+                <div class="endpoint-head" onclick="toggleEp(this)">
+                    <span class="endpoint-method method-get">GET</span>
+                    <span class="endpoint-path">/api/audit/:serverCode</span>
+                    <span class="endpoint-summary">Retrieve audit log entries</span>
+                    <svg class="endpoint-toggle" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                </div>
+                <div class="endpoint-body">
+                    <p class="endpoint-desc">Returns up to 25 most recent audit entries for a server. Filter by type using query params.</p>
+                    <p class="params-title">Query Parameters</p>
+                    <table>
+                        <tr><th>Name</th><th>Description</th></tr>
+                        <tr><td class="param-name">types</td><td>Comma-separated list: <code>player_added,player_left,punishment,robbery,team_changed,player_down,shots_fired,phone_call,set_wanted</code></td></tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODULE -->
+        <div id="module" class="endpoint-section">
+            <div class="endpoint-section-title">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                Roblox Module Reference
+            </div>
+            <p style="color:var(--muted);font-size:0.84rem;line-height:1.7;margin-bottom:1.25rem">Place <code>ShieldModule.lua</code> in ServerScriptService. Require it and call functions to log events and issue commands. All functions are non-blocking (wrapped in <code>task.spawn</code>).</p>
+            <div class="code-block">
+                <div class="code-block-header"><span>Lua — Module usage</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+                <pre><span class="kw">local</span> Shield = <span class="fn">require</span>(game.ServerScriptService.ShieldModule)
+
+<span class="cmt">-- Reporting (Roblox-server-only, no dashboard command executed)</span>
+Shield.<span class="fn">ShotsFired</span>(shooterName, shooterUserId, targetName, targetUserId, weapon, posX, posZ)
+Shield.<span class="fn">SetRobbery</span>(suspects, robberyName, robberyType, startedAt)
+Shield.<span class="fn">SetWanted</span>(playerName, playerUserId, stars, reason, crimes)
+Shield.<span class="fn">PlayerTeamChanged</span>(playerName, playerUserId, oldTeam, newTeam, xpGiven)
+Shield.<span class="fn">PhoneCall</span>(playerName, playerUserId, posX, posZ, forTeam, message)
+Shield.<span class="fn">PlayerDown</span>(playerName, playerUserId, playerTeam, killerName, killerId, weaponName, posX, posZ)
+
+<span class="cmt">-- Punishments (logs + queues Roblox command)</span>
+Shield.<span class="fn">Ban</span>(bannedName, bannedUserId, responsibleName, responsibleId, duration, reason)
+Shield.<span class="fn">Unban</span>(userId, responsibleName, responsibleId, reason)
+Shield.<span class="fn">Kick</span>(targetName, targetId, responsibleName, responsibleId, reason)
+Shield.<span class="fn">Warn</span>(targetName, targetId, responsibleName, responsibleId, reason, expireSeconds)
+Shield.<span class="fn">Unwarn</span>(targetName, targetId, caseId)
+Shield.<span class="fn">Warns</span>(targetName, targetId) <span class="cmt">-- returns table of warn records</span>
+Shield.<span class="fn">FreezeToggle</span>(targetName, targetId, responsibleName, responsibleId)
+Shield.<span class="fn">Bring</span>(targetName, targetId, responsibleName, responsibleId)
+Shield.<span class="fn">To</span>(targetName, targetId, responsibleName, responsibleId)
+
+<span class="cmt">-- Side commands (meta / info only, no punishment executed)</span>
+Shield.<span class="fn">ServerShutdown</span>(responsibleName, responsibleId)
+Shield.<span class="fn">PlayerSetInventory</span>(playerName, playerUserId, inventory)
+Shield.<span class="fn">UpdateAdmins</span>(adminIdsArray)
+Shield.<span class="fn">SetServerOwner</span>(userId)
+Shield.<span class="fn">ServerSetName</span>(newName)
+Shield.<span class="fn">ServerSetJoinCode</span>(newCode)
+Shield.<span class="fn">Addlocation</span>(locationName, positionsArray, text)
+Shield.<span class="fn">Message</span>(toWho, message) <span class="cmt">-- @everyone | @me | username</span></pre>
+            </div>
+        </div>
+
+        <!-- DISCORD -->
+        <div id="discord" class="endpoint-section">
+            <div class="endpoint-section-title">Discord Integration</div>
+            <p style="color:var(--muted);font-size:0.84rem;line-height:1.7;margin-bottom:1rem">Set <code>DiscordWebhookUrl</code> in your <code>.env</code> file. The following events are automatically forwarded:</p>
+            <table>
+                <tr><th>Event</th><th>Trigger</th></tr>
+                <tr><td>Player joined / left</td><td><code>/api/tracking/join|leave</code></td></tr>
+                <tr><td>Ban / Unban</td><td><code>/api/punishments/ban|unban</code></td></tr>
+                <tr><td>Kick</td><td><code>/api/punishments/kick</code></td></tr>
+                <tr><td>Warn</td><td><code>/api/punishments/warn</code></td></tr>
+                <tr><td>Team Changed</td><td><code>/api/tracking/teamchange</code></td></tr>
+            </table>
+        </div>
+
+    </div><!-- end .content -->
+</div><!-- end #main -->
+
+<script>
+function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('collapsed');
+}
+function toggleTheme() {
+    const html  = document.documentElement;
+    const isDark = html.dataset.theme === 'dark';
+    html.dataset.theme = isDark ? 'light' : 'dark';
+    document.getElementById('theme-label').textContent = isDark ? 'Dark mode' : 'Light mode';
+}
+function scrollTo(id) {
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document.querySelectorAll('.sidebar-link').forEach(l => l.classList.remove('active'));
+    event.target.classList.add('active');
+}
+function toggleEp(head) {
+    head.closest('.endpoint-card').classList.toggle('open');
+}
+function copyCode(btn) {
+    const pre = btn.closest('.code-block').querySelector('pre');
+    navigator.clipboard.writeText(pre.innerText).then(() => {
+        btn.textContent = 'Copied';
+        btn.classList.add('copied');
+        setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1500);
+    });
+}
+function goToDashboard() {
+    const user = JSON.parse(sessionStorage.getItem('ehUser') || 'null');
+    window.location.href = user ? '/Api/Dashboard' : '/Api?login=1';
+}
+</script>
+</body>
+</html>

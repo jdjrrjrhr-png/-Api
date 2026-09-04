@@ -1,0 +1,28 @@
+{
+  "mapBounds": {
+    "X_min": -800,
+    "X_max": 800,
+    "Z_min": -800,
+    "Z_max": 800
+  },
+  "mapImagePath": "/img/TopdownMap.png",
+  "teams": [
+    "BusCompany",
+    "Citizen",
+    "FireDepartment",
+    "HARS",
+    "Police",
+    "Prisoner",
+    "TruckCompany"
+  ],
+  "heartbeatInterval": 2,
+  "mapStreamInterval": 5,
+  "mapMinPlayers": 10,
+  "maxAuditLogs": 25,
+  "maxChatMessages": 30,
+  "warnCaseIdLength": 6,
+  "serverCodeLength": "4x4",
+  "serverCodeRegenerateCooldown": 900,
+  "scheduledShutdownMaxDays": 14,
+  "refreshCooldownSeconds": 10
+}
