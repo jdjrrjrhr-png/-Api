@@ -500,7 +500,7 @@ a { color: inherit; text-decoration: none; }
     user-select: none;
     width: 100%;
     /* مطابقة نسبة عرض البارت (342) إلى طوله (619) لمنع الانحراف */
-    aspect-ratio: 342 / 619; 
+   aspect-ratio: 632 / 288;
 }
 
 /* ضمان انطباق الصورة $100\%$ على الحاوية بدون أي مسافات مخفية */
