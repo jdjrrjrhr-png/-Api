@@ -489,78 +489,140 @@ a { color: inherit; text-decoration: none; }
 .chat-send-btn:hover { opacity: 0.8; }
 
 /* ─── MAP ─── */
+/* =========================================================
+   1. حاوية الخريطة والصورة (تم التعديل لتطابق أبعاد روبلوكس)
+   ========================================================= */
 .map-container {
     position: relative;
     background: #0a0b14;
     border-radius: var(--radius);
     overflow: hidden;
     user-select: none;
-    min-height: 240px;
+    width: 100%;
+    /* مطابقة نسبة عرض البارت (342) إلى طوله (619) لمنع الانحراف */
+    aspect-ratio: 342 / 619; 
 }
-.map-container img { width: 100%; display: block; }
+
+/* ضمان انطباق الصورة $100\%$ على الحاوية بدون أي مسافات مخفية */
+.map-container img { 
+    width: 100%; 
+    height: 100%;
+    display: block; 
+    object-fit: fill; 
+}
+
 .map-overlay-msg {
-    position: absolute; inset: 0;
-    display: flex; align-items: center; justify-content: center;
+    position: absolute; 
+    inset: 0;
+    display: flex; 
+    align-items: center; 
+    justify-content: center;
     background: rgba(7,8,15,0.75);
-    color: var(--muted); font-size: 0.8rem; text-align: center;
+    color: var(--muted); 
+    font-size: 0.8rem; 
+    text-align: center;
     padding: 1rem;
     border-radius: var(--radius);
+    z-index: 20;
 }
+
+/* =========================================================
+   2. أيقونات اللاعبين
+   ========================================================= */
 .map-player-marker {
     position: absolute;
-    display: flex; flex-direction: column; align-items: center;
+    display: flex; 
+    flex-direction: column; 
+    align-items: center;
     transform: translate(-50%, -50%);
     cursor: pointer;
-    transition: transform 0.3s ease;
+    /* تحسين الترانزيشن ليكون على المواقع left و top للحركة الانسيابية */
+    transition: left 0.3s ease, top 0.3s ease; 
     z-index: 10;
 }
+
 .map-player-marker img {
+    width: 24px;
+    height: 24px;
     border-radius: 50%;
-    border: 2px solid;
+    border: 2px solid var(--accent, #4f6ef7);
     object-fit: cover;
     box-shadow: 0 2px 8px rgba(0,0,0,0.4);
 }
+
 .map-player-label {
-    font-size: 0.6rem; font-weight: 600;
+    font-size: 0.6rem; 
+    font-weight: 600;
     margin-top: 2px;
     text-shadow: 0 1px 3px rgba(0,0,0,0.8);
     white-space: nowrap;
+    background: rgba(10, 11, 20, 0.75);
+    padding: 1px 4px;
+    border-radius: 3px;
 }
+
+/* =========================================================
+   3. الفلاتر والأزرار
+   ========================================================= */
 .map-filters {
-    display: flex; flex-wrap: wrap; gap: 5px;
+    display: flex; 
+    flex-wrap: wrap; 
+    gap: 5px;
     padding: 6px;
 }
+
 .map-filter-btn {
     background: var(--surface2);
     border: 1px solid var(--border);
     border-radius: 6px;
     padding: 3px 8px;
-    font-size: 0.7rem; font-weight: 500;
+    font-size: 0.7rem; 
+    font-weight: 500;
     color: var(--text2);
     transition: background 0.15s, border-color 0.15s, color 0.15s;
-    display: flex; align-items: center; gap: 4px;
+    display: flex; 
+    align-items: center; 
+    gap: 4px;
 }
+
 .map-filter-btn.active {
     background: rgba(79,110,247,0.12);
     border-color: rgba(79,110,247,0.3);
     color: var(--accent);
 }
+
+/* =========================================================
+   4. نقاط المواقع المهمة (Locations)
+   ========================================================= */
 .map-location-marker {
     position: absolute;
     transform: translate(-50%, -50%);
-    display: flex; flex-direction: column; align-items: center;
+    display: flex; 
+    flex-direction: column; 
+    align-items: center;
+    transition: left 0.3s ease, top 0.3s ease;
     z-index: 5;
 }
+
 .map-location-dot {
-    width: 20px; height: 20px; border-radius: 50%;
+    width: 20px; 
+    height: 20px; 
+    border-radius: 50%;
     background: rgba(245,158,11,0.3);
     border: 2px solid var(--amber);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 0.55rem; font-weight: 700; color: var(--amber);
+    display: flex; 
+    align-items: center; 
+    justify-content: center;
+    font-size: 0.55rem; 
+    font-weight: 700; 
+    color: var(--amber);
 }
+
 .map-location-label {
-    font-size: 0.6rem; color: var(--amber);
-    margin-top: 2px; white-space: nowrap;
+    font-size: 0.6rem; 
+    color: var(--amber);
+    margin-top: 2px; 
+    white-space: nowrap;
     text-shadow: 0 1px 3px rgba(0,0,0,0.8);
 }
 
