@@ -1005,7 +1005,7 @@ const MapView = {
 
     worldToMap(x, z) {
         // Read bounds from config.json (hardcoded here, matching config.json)
-       const X_min = 558, X_max = -74, Z_min = 442, Z_max = 730;
+       const X_min = 558, X_max = -74, Z_min = 730, Z_max = 442;
         const left = ((x - X_min) / (X_max - X_min)) * 100;
         const top  = ((z - Z_min) / (Z_max - Z_min)) * 100;
         return { left: Math.min(100, Math.max(0, left)), top: Math.min(100, Math.max(0, top)) };
