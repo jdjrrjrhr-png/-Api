@@ -1,10 +1,10 @@
 {
   "mapBounds": {
-    "X_min": 291,
-    "X_max": -51,
-    "Z_min": -1025,
-    "Z_max": -406
-  },
+    "X_min": -74,
+    "X_max": 558,
+    "Z_min": 442,
+    "Z_max": 730
+  ,
   "mapImagePath": "/img/TopdownMap.png",
   "teams": [
     "BusCompany",
