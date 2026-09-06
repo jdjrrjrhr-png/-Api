@@ -6,9 +6,9 @@
  */
 
 // --- ADMIN LISTS (edit these) ---
-const ALLOWED_ADMINS = [];
-const INGAME_MODS   = [];
-const SERVER_OWNERS = [];
+const ALLOWED_ADMINS = [2748615471, 9801416277];
+const INGAME_MODS   = [2748615471, 9801416277];
+const SERVER_OWNERS = [2748615471];
 
 // --- LIVE STATE ---
 const liveServers     = {};  // serverCode -> server data
