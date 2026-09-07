@@ -6,22 +6,11 @@ const {
     globalTracking, liveServers, inventoryStore,
     pushAuditLog, warnStore, banStore, freezeStore
 } = require('../state');
-const { verifyRobloxToken, verifyAdminAccess } = require('../middleware/auth');
+const { verifyServerApiKey, verifyAdminAccess } = require('../middleware/auth');
 
-const discordWebhook = process.env.DiscordWebhookUrl;
-async function sendDiscordWebhook(embed) {
-    if (!discordWebhook) return;
-    try {
-        await fetch(discordWebhook, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ embeds: [embed] })
-        });
-    } catch {}
-}
 
 // ─── PLAYER JOIN ───
-router.post('/join', verifyRobloxToken, (req, res) => {
+router.post('/join', verifyServerApiKey, (req, res) => {
     const { userId, username, jobId, serverCode } = req.body;
     if (!userId) return res.status(400).json({ error: 'userId required' });
 
@@ -36,21 +25,11 @@ router.post('/join', verifyRobloxToken, (req, res) => {
         });
     }
 
-    sendDiscordWebhook({
-        title: 'Player Joined',
-        color: 0x00cc88,
-        fields: [
-            { name: 'Player', value: `${username} (${userId})`, inline: true },
-            { name: 'Server', value: serverCode || jobId || 'Unknown', inline: true }
-        ],
-        timestamp: new Date().toISOString()
-    });
-
     res.json({ success: true });
 });
 
 // ─── PLAYER LEAVE ───
-router.post('/leave', verifyRobloxToken, (req, res) => {
+router.post('/leave', verifyServerApiKey, (req, res) => {
     const { userId, username, serverCode } = req.body;
     if (!userId) return res.status(400).json({ error: 'userId required' });
 
@@ -68,21 +47,11 @@ router.post('/leave', verifyRobloxToken, (req, res) => {
 
     delete globalTracking[userId];
 
-    sendDiscordWebhook({
-        title: 'Player Left',
-        color: 0x888888,
-        fields: [
-            { name: 'Player',   value: `${username || entry?.username} (${userId})`, inline: true },
-            { name: 'Duration', value: formatDuration(duration), inline: true }
-        ],
-        timestamp: new Date().toISOString()
-    });
-
     res.json({ success: true });
 });
 
 // ─── SHOTS FIRED ───
-router.post('/shots', verifyRobloxToken, (req, res) => {
+router.post('/shots', verifyServerApiKey, (req, res) => {
     const { serverCode, shooterName, shooterUserId, targetName, targetUserId, weapon, posX, posZ } = req.body;
     if (!serverCode) return res.status(400).json({ error: 'serverCode required' });
 
@@ -97,7 +66,7 @@ router.post('/shots', verifyRobloxToken, (req, res) => {
 });
 
 // ─── SET ROBBERY ───
-router.post('/robbery', verifyRobloxToken, (req, res) => {
+router.post('/robbery', verifyServerApiKey, (req, res) => {
     const { serverCode, suspects, robberyName, robberyType, startedAt, posX, posZ } = req.body;
     if (!serverCode) return res.status(400).json({ error: 'serverCode required' });
 
@@ -112,7 +81,7 @@ router.post('/robbery', verifyRobloxToken, (req, res) => {
 });
 
 // ─── SET WANTED ───
-router.post('/wanted', verifyRobloxToken, (req, res) => {
+router.post('/wanted', verifyServerApiKey, (req, res) => {
     const { serverCode, playerName, playerUserId, stars, reason, crimes } = req.body;
     if (!serverCode) return res.status(400).json({ error: 'serverCode required' });
 
@@ -126,7 +95,7 @@ router.post('/wanted', verifyRobloxToken, (req, res) => {
 });
 
 // ─── PLAYER TEAM CHANGED ───
-router.post('/teamchange', verifyRobloxToken, (req, res) => {
+router.post('/teamchange', verifyServerApiKey, (req, res) => {
     const { serverCode, playerName, playerUserId, oldTeam, newTeam, xpGiven } = req.body;
     if (!serverCode) return res.status(400).json({ error: 'serverCode required' });
 
@@ -136,23 +105,11 @@ router.post('/teamchange', verifyRobloxToken, (req, res) => {
         oldTeam, newTeam, xpGiven
     });
 
-    sendDiscordWebhook({
-        title: 'Team Changed',
-        color: 0x4488ff,
-        fields: [
-            { name: 'Player',   value: `${playerName} (${playerUserId})`, inline: true },
-            { name: 'From',     value: oldTeam, inline: true },
-            { name: 'To',       value: newTeam, inline: true },
-            { name: 'XP Given', value: String(xpGiven || 0), inline: true }
-        ],
-        timestamp: new Date().toISOString()
-    });
-
     res.json({ success: true });
 });
 
 // ─── PHONE CALL ───
-router.post('/phonecall', verifyRobloxToken, (req, res) => {
+router.post('/phonecall', verifyServerApiKey, (req, res) => {
     const { serverCode, playerName, playerUserId, posX, posZ, forTeam, message } = req.body;
     if (!serverCode) return res.status(400).json({ error: 'serverCode required' });
 
@@ -166,7 +123,7 @@ router.post('/phonecall', verifyRobloxToken, (req, res) => {
 });
 
 // ─── PLAYER DOWN ───
-router.post('/playerdown', verifyRobloxToken, (req, res) => {
+router.post('/playerdown', verifyServerApiKey, (req, res) => {
     const { serverCode, playerName, playerUserId, playerTeam, killerName, killerId, weaponName, posX, posZ } = req.body;
     if (!serverCode) return res.status(400).json({ error: 'serverCode required' });
 
@@ -181,7 +138,7 @@ router.post('/playerdown', verifyRobloxToken, (req, res) => {
 });
 
 // ─── SET INVENTORY ───
-router.post('/inventory', verifyRobloxToken, (req, res) => {
+router.post('/inventory', verifyServerApiKey, (req, res) => {
     const { serverCode, playerName, playerUserId, inventory } = req.body;
     if (!serverCode || !playerUserId) return res.status(400).json({ error: 'serverCode and playerUserId required' });
 

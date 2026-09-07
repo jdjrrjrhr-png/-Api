@@ -362,6 +362,7 @@ pre {
         <div class="sidebar-section">Overview</div>
         <a class="sidebar-link active" onclick="scrollTo('intro')">Introduction</a>
         <a class="sidebar-link" onclick="scrollTo('auth')">Authentication</a>
+        <a class="sidebar-link" onclick="scrollTo('triggers')">Triggers &amp; Logging</a>
         <a class="sidebar-link" onclick="scrollTo('not-dev')">Not a developer?</a>
 
         <div class="sidebar-section">Player Events</div>
@@ -382,7 +383,8 @@ pre {
         <a class="sidebar-link" onclick="scrollTo('heartbeat')">Heartbeat</a>
         <a class="sidebar-link" onclick="scrollTo('commands')">Issue Commands</a>
         <a class="sidebar-link" onclick="scrollTo('shutdown')">Shutdown</a>
-        <a class="sidebar-link" onclick="scrollTo('message')">Broadcast Message</a>
+        <a class="sidebar-link" onclick="scrollTo('lock')">Lock / Unlock</a>
+        <a class="sidebar-link" onclick="scrollTo('message')">Message &amp; Health</a>
         <a class="sidebar-link" onclick="scrollTo('map')">Map &amp; Positions</a>
         <a class="sidebar-link" onclick="scrollTo('inventory')">Inventory</a>
 
@@ -391,7 +393,6 @@ pre {
 
         <div class="sidebar-section">Roblox Module</div>
         <a class="sidebar-link" onclick="scrollTo('module')">Module Reference</a>
-        <a class="sidebar-link" onclick="scrollTo('discord')">Discord Integration</a>
     </nav>
 </aside>
 
@@ -440,26 +441,185 @@ pre {
                 Authentication
             </div>
 
+            <div class="info-box warn-box">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                <div><strong>Never share your server's API key</strong> with anyone you don't fully trust — anyone holding it can issue moderation commands and read your server's data as if they were the Roblox server itself. If you suspect a key has leaked, regenerate it immediately from the dashboard (Server → API Key, owner only) or by calling <code>Shield.SetApiKey(oldCode, newCode)</code> from a trusted Studio session. The old key keeps working for a short grace window after rotation so your live server doesn't get disconnected mid-swap.</div>
+            </div>
+
             <div class="endpoint-card" id="ep-auth-header">
                 <div class="endpoint-head" onclick="toggleEp(this)">
                     <span class="endpoint-method method-post" style="background:rgba(79,110,247,0.15);color:#4f6ef7">ANY</span>
-                    <span class="endpoint-path">Authorization: Bearer &lt;ApiToken&gt;</span>
+                    <span class="endpoint-path">Authorization: Bearer &lt;serverApiKey&gt;</span>
                     <span class="endpoint-summary">Roblox server requests</span>
                     <svg class="endpoint-toggle" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
                 </div>
                 <div class="endpoint-body">
-                    <p class="endpoint-desc">Every request from the Roblox server must include this header. The <code>ApiToken</code> is set in your server's <code>.env</code> file and inside the Lua module.</p>
+                    <p class="endpoint-desc">Every request from a Roblox server must include this header. Unlike a single shared token, <strong>each server generates and owns its own key</strong> — the <code>ShieldModule</code> handles this for you automatically the moment you call <code>Shield.Init()</code>, persisting it via DataStore so it survives server restarts. You never need to hardcode a key manually.</p>
+                    <div class="code-block">
+                        <div class="code-block-header"><span>Lua — handled automatically by Init()</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+                        <pre><span class="kw">local</span> Shield = <span class="fn">require</span>(game.ServerScriptService.ShieldModule)
+Shield.<span class="fn">Init</span>() <span class="cmt">-- generates/loads this server's key, registers it, starts everything</span></pre>
+                    </div>
+                    <p class="endpoint-desc" style="margin-top:10px">Calling the raw HTTP API yourself (e.g. from a Discord bot) still uses the same header — grab the current key from the dashboard's API Key panel (owner only):</p>
                     <div class="code-block">
                         <div class="code-block-header"><span>JavaScript</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-                        <pre><span class="kw">const</span> response = <span class="kw">await</span> <span class="fn">fetch</span>(<span class="str">"https://api-production-59e1.up.railway.app/api/tracking/join"</span>, {
+                        <pre><span class="kw">const</span> response = <span class="kw">await</span> <span class="fn">fetch</span>(<span class="str">"https://api-production-59e1.up.railway.app/api/punishments/warn"</span>, {
   <span class="key">method</span>: <span class="str">"POST"</span>,
   <span class="key">headers</span>: {
     <span class="str">"Content-Type"</span>: <span class="str">"application/json"</span>,
-    <span class="str">"Authorization"</span>: <span class="str">"Bearer YOUR_API_TOKEN"</span>
+    <span class="str">"Authorization"</span>: <span class="str">"Bearer YOUR_SERVER_API_KEY"</span>
   },
-  <span class="key">body</span>: <span class="fn">JSON.stringify</span>({ <span class="key">userId</span>: <span class="num">123456789</span>, <span class="key">username</span>: <span class="str">"PlayerName"</span> })
+  <span class="key">body</span>: <span class="fn">JSON.stringify</span>({ <span class="key">serverCode</span>: <span class="str">"..."</span>, <span class="key">toWho</span>: <span class="str">"PlayerName"</span> })
 });</pre>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TRIGGERS & LOGGING -->
+        <div id="triggers" class="endpoint-section">
+            <div class="endpoint-section-title">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                Triggers &amp; Logging
+            </div>
+            <p class="endpoint-desc">Every one of these actions is written to the server's persistent Audit Log (visible in the dashboard and via <code>GET /api/audit/:serverCode</code>), whether it was triggered from the dashboard, a Discord bot, or Roblox itself. Punishment entries always carry a <strong>Case ID</strong> and the <strong>Responsible ID</strong> (the acting admin's user ID) so any action can be traced back and, where applicable, reversed.</p>
+            <table style="margin-top:10px">
+                <tr><th>Trigger</th><th>Logged as</th><th>Reversible</th></tr>
+                <tr><td class="param-name">Player joined / left</td><td class="param-type">player_added / player_left</td><td>—</td></tr>
+                <tr><td class="param-name">Ban / Unban</td><td class="param-type">punishment (ban)</td><td>Yes — Unban with Case ID</td></tr>
+                <tr><td class="param-name">Kick</td><td class="param-type">punishment (kick)</td><td>No (one-time action)</td></tr>
+                <tr><td class="param-name">Warn</td><td class="param-type">punishment (warn)</td><td>Yes — Unwarn with Case ID</td></tr>
+                <tr><td class="param-name">Unwarn</td><td class="param-type">punishment (unwarn)</td><td>—</td></tr>
+                <tr><td class="param-name">Freeze / Unfreeze</td><td class="param-type">punishment (freeze)</td><td>Toggled by re-calling Freeze</td></tr>
+                <tr><td class="param-name">Team Changed</td><td class="param-type">team_changed</td><td>—</td></tr>
+            </table>
+        </div>
+
+        <!-- MESSAGE / HEALTH COMMANDS -->
+        <div id="message" class="endpoint-section">
+            <div class="endpoint-section-title">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                Message &amp; Health Commands
+            </div>
+            <p class="endpoint-desc">Both commands are issued through the same generic commands endpoint and always resolve <code>target</code> to one of <code>@everyone</code>, <code>@me</code>, or a specific username — Roblox never has to guess who a command is for.</p>
+            <div class="endpoint-card">
+                <div class="endpoint-head" onclick="toggleEp(this)">
+                    <span class="endpoint-method method-post">POST</span>
+                    <span class="endpoint-path">/api/servers/:serverCode/commands</span>
+                    <span class="endpoint-summary">action: "message"</span>
+                    <svg class="endpoint-toggle" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                </div>
+                <div class="endpoint-body">
+                    <p class="params-title">Body Parameters</p>
+                    <table>
+                        <tr><th>Name</th><th>Type</th><th>Required</th><th>Description</th></tr>
+                        <tr><td class="param-name">action</td><td class="param-type">"message"</td><td><span class="required-tag">required</span></td><td>&nbsp;</td></tr>
+                        <tr><td class="param-name">target</td><td class="param-type">string</td><td><span class="optional-tag">optional</span></td><td>@everyone (default) / @me / username</td></tr>
+                        <tr><td class="param-name">reason</td><td class="param-type">string</td><td><span class="required-tag">required</span></td><td>The message text itself</td></tr>
+                    </table>
+                    <p class="params-title" style="margin-top:10px">Roblox receives (via ShieldNotify RemoteEvent)</p>
+                    <table>
+                        <tr><th>Field</th><th>Type</th><th>Notes</th></tr>
+                        <tr><td class="param-name">type</td><td class="param-type">"message"</td><td>&nbsp;</td></tr>
+                        <tr><td class="param-name">text</td><td class="param-type">string</td><td>The message content</td></tr>
+                        <tr><td class="param-name">by</td><td class="param-type">string</td><td>Sender's username</td></tr>
+                    </table>
+                </div>
+            </div>
+            <div class="endpoint-card">
+                <div class="endpoint-head" onclick="toggleEp(this)">
+                    <span class="endpoint-method method-post">POST</span>
+                    <span class="endpoint-path">/api/servers/:serverCode/commands</span>
+                    <span class="endpoint-summary">action: "health"</span>
+                    <svg class="endpoint-toggle" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                </div>
+                <div class="endpoint-body">
+                    <p class="params-title">Body Parameters</p>
+                    <table>
+                        <tr><th>Name</th><th>Type</th><th>Required</th><th>Description</th></tr>
+                        <tr><td class="param-name">action</td><td class="param-type">"health"</td><td><span class="required-tag">required</span></td><td>&nbsp;</td></tr>
+                        <tr><td class="param-name">target</td><td class="param-type">string</td><td><span class="optional-tag">optional</span></td><td>@everyone (default) / @me / username</td></tr>
+                        <tr><td class="param-name">newHealth</td><td class="param-type">number</td><td><span class="optional-tag">optional</span></td><td>Leave empty to not touch current health — sent to Roblox as <code>nil</code></td></tr>
+                        <tr><td class="param-name">maxHealth</td><td class="param-type">number</td><td><span class="optional-tag">optional</span></td><td>Leave empty to not touch max health — sent to Roblox as <code>nil</code></td></tr>
+                    </table>
+                    <p class="params-title" style="margin-top:10px">Roblox receives</p>
+                    <table>
+                        <tr><th>Field</th><th>Type</th><th>Notes</th></tr>
+                        <tr><td class="param-name">newHealth / maxHealth</td><td class="param-type">number | nil</td><td>Whichever was left empty arrives as <code>nil</code> — that stat is left unchanged</td></tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- INVENTORY -->
+        <div id="inventory" class="endpoint-section">
+            <div class="endpoint-section-title">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+                Inventory
+            </div>
+            <div class="endpoint-card">
+                <div class="endpoint-head" onclick="toggleEp(this)">
+                    <span class="endpoint-method method-post">POST</span>
+                    <span class="endpoint-path">/api/tracking/inventory</span>
+                    <span class="endpoint-summary">Push a player's current inventory</span>
+                    <svg class="endpoint-toggle" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                </div>
+                <div class="endpoint-body">
+                    <table>
+                        <tr><th>Name</th><th>Type</th><th>Required</th></tr>
+                        <tr><td class="param-name">serverCode</td><td class="param-type">string</td><td><span class="required-tag">required</span></td></tr>
+                        <tr><td class="param-name">playerName / playerUserId</td><td class="param-type">string / number</td><td><span class="required-tag">required</span></td></tr>
+                        <tr><td class="param-name">inventory</td><td class="param-type">array</td><td><span class="required-tag">required</span></td></tr>
+                    </table>
+                    <div class="code-block">
+                        <div class="code-block-header"><span>Lua</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+                        <pre>Shield.<span class="fn">PlayerSetInventory</span>(player.Name, player.UserId, {<span class="str">"Bandage"</span>, <span class="str">"Radio"</span>})</pre>
+                    </div>
+                </div>
+            </div>
+            <div class="endpoint-card">
+                <div class="endpoint-head" onclick="toggleEp(this)">
+                    <span class="endpoint-method" style="background:rgba(34,197,94,0.15);color:#22c55e">GET</span>
+                    <span class="endpoint-path">/api/tracking/inventory/:serverCode/:userId</span>
+                    <span class="endpoint-summary">Fetch a player's stored inventory (dashboard use)</span>
+                    <svg class="endpoint-toggle" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                </div>
+                <div class="endpoint-body">
+                    <p class="endpoint-desc">Requires admin auth (<code>userId</code>/<code>senderId</code> query params). Returns <code>{ playerName, inventory: [] }</code>.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- LOCK / UNLOCK -->
+        <div id="lock" class="endpoint-section">
+            <div class="endpoint-section-title">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                Lock / Unlock Server
+            </div>
+            <div class="info-box warn-box">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                <div>These endpoints only relay <strong>who</strong> requested the lock/unlock to your Roblox server — the module logs the request but the actual lock/unlock game logic (e.g. rejecting new joins) is something you implement yourself in Studio.</div>
+            </div>
+            <div class="endpoint-card">
+                <div class="endpoint-head" onclick="toggleEp(this)">
+                    <span class="endpoint-method method-post">POST</span>
+                    <span class="endpoint-path">/api/servers/:serverCode/lock</span>
+                    <span class="endpoint-summary">Request a server lock</span>
+                    <svg class="endpoint-toggle" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                </div>
+                <div class="endpoint-body">
+                    <p class="endpoint-desc">Requires being on duty in this server. Queues a <code>lock_request</code> command with <code>senderId</code>/<code>senderName</code> for Roblox to pick up.</p>
+                </div>
+            </div>
+            <div class="endpoint-card">
+                <div class="endpoint-head" onclick="toggleEp(this)">
+                    <span class="endpoint-method method-post">POST</span>
+                    <span class="endpoint-path">/api/servers/:serverCode/unlock</span>
+                    <span class="endpoint-summary">Request a server unlock</span>
+                    <svg class="endpoint-toggle" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                </div>
+                <div class="endpoint-body">
+                    <p class="endpoint-desc">Same shape as Lock, queues an <code>unlock_request</code> command instead.</p>
                 </div>
             </div>
         </div>
@@ -468,6 +628,7 @@ pre {
         <div id="not-dev" class="not-dev-card">
             <h2>Not a developer?</h2>
             <p>You don't need to write a single line of code. Our dashboard gives you every tool this API offers — moderation, audit logs, player map, and chat — through a clean, easy-to-use interface with more features than the raw API. It is <em>significantly</em> easier and has more features than calling these endpoints manually.</p>
+
             <p>Head to the <a onclick="goToDashboard()">dashboard</a> — it's faster, cleaner, and requires no technical knowledge.</p>
         </div>
 
@@ -937,10 +1098,19 @@ pre {
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
                 Roblox Module Reference
             </div>
-            <p style="color:var(--muted);font-size:0.84rem;line-height:1.7;margin-bottom:1.25rem">Place <code>ShieldModule.lua</code> in ServerScriptService. Require it and call functions to log events and issue commands. All functions are non-blocking (wrapped in <code>task.spawn</code>).</p>
+            <div class="info-box warn-box">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                <div>The module no longer runs anything automatically on <code>require()</code>. Call <code>Shield.Init()</code> once your server is ready — nothing connects to the API before that.</div>
+            </div>
+            <p style="color:var(--muted);font-size:0.84rem;line-height:1.7;margin-bottom:1.25rem">Place <code>ShieldModule.lua</code> in ServerScriptService. All functions besides <code>Init</code>/<code>Deinit</code> are non-blocking (wrapped in <code>task.spawn</code>).</p>
             <div class="code-block">
                 <div class="code-block-header"><span>Lua — Module usage</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
                 <pre><span class="kw">local</span> Shield = <span class="fn">require</span>(game.ServerScriptService.ShieldModule)
+
+<span class="cmt">-- Lifecycle</span>
+Shield.<span class="fn">Init</span>() <span class="cmt">-- generates/loads this server's API key, registers it, starts heartbeat/positions/events</span>
+Shield.<span class="fn">Deinit</span>() <span class="cmt">-- stops all API activity + connections without shutting the server down</span>
+Shield.<span class="fn">SetApiKey</span>(oldCode, newCode) <span class="cmt">-- rotate manually (e.g. you changed it in Studio); oldCode may equal newCode</span>
 
 <span class="cmt">-- Reporting (Roblox-server-only, no dashboard command executed)</span>
 Shield.<span class="fn">ShotsFired</span>(shooterName, shooterUserId, targetName, targetUserId, weapon, posX, posZ)
@@ -950,41 +1120,29 @@ Shield.<span class="fn">PlayerTeamChanged</span>(playerName, playerUserId, oldTe
 Shield.<span class="fn">PhoneCall</span>(playerName, playerUserId, posX, posZ, forTeam, message)
 Shield.<span class="fn">PlayerDown</span>(playerName, playerUserId, playerTeam, killerName, killerId, weaponName, posX, posZ)
 
-<span class="cmt">-- Punishments (logs + queues Roblox command)</span>
+<span class="cmt">-- Punishments (logs + queues Roblox command, always carries a Case ID)</span>
 Shield.<span class="fn">Ban</span>(bannedName, bannedUserId, responsibleName, responsibleId, duration, reason)
 Shield.<span class="fn">Unban</span>(userId, responsibleName, responsibleId, reason)
 Shield.<span class="fn">Kick</span>(targetName, targetId, responsibleName, responsibleId, reason)
 Shield.<span class="fn">Warn</span>(targetName, targetId, responsibleName, responsibleId, reason, expireSeconds)
 Shield.<span class="fn">Unwarn</span>(targetName, targetId, caseId)
 Shield.<span class="fn">Warns</span>(targetName, targetId) <span class="cmt">-- returns table of warn records</span>
-Shield.<span class="fn">FreezeToggle</span>(targetName, targetId, responsibleName, responsibleId)
+Shield.<span class="fn">FreezeToggle</span>(targetName, targetId, responsibleName, responsibleId) <span class="cmt">-- resolves by userId first, immune to display-name mismatches</span>
 Shield.<span class="fn">Bring</span>(targetName, targetId, responsibleName, responsibleId)
 Shield.<span class="fn">To</span>(targetName, targetId, responsibleName, responsibleId)
 
-<span class="cmt">-- Side commands (meta / info only, no punishment executed)</span>
-Shield.<span class="fn">ServerShutdown</span>(responsibleName, responsibleId)
-Shield.<span class="fn">PlayerSetInventory</span>(playerName, playerUserId, inventory)
-Shield.<span class="fn">UpdateAdmins</span>(adminIdsArray)
-Shield.<span class="fn">SetServerOwner</span>(userId)
+<span class="cmt">-- Roster &amp; server identity</span>
+Shield.<span class="fn">UpdateAdmins</span>(adminIds, modIds) <span class="cmt">-- adminIds: global access, modIds: scoped to this server only</span>
+Shield.<span class="fn">SetOwner</span>(userId) <span class="cmt">-- sets this server's owner</span>
 Shield.<span class="fn">ServerSetName</span>(newName)
 Shield.<span class="fn">ServerSetJoinCode</span>(newCode)
-Shield.<span class="fn">Addlocation</span>(locationName, positionsArray, text)
-Shield.<span class="fn">Message</span>(toWho, message) <span class="cmt">-- @everyone | @me | username</span></pre>
-            </div>
-        </div>
 
-        <!-- DISCORD -->
-        <div id="discord" class="endpoint-section">
-            <div class="endpoint-section-title">Discord Integration</div>
-            <p style="color:var(--muted);font-size:0.84rem;line-height:1.7;margin-bottom:1rem">Set <code>DiscordWebhookUrl</code> in your <code>.env</code> file. The following events are automatically forwarded:</p>
-            <table>
-                <tr><th>Event</th><th>Trigger</th></tr>
-                <tr><td>Player joined / left</td><td><code>/api/tracking/join|leave</code></td></tr>
-                <tr><td>Ban / Unban</td><td><code>/api/punishments/ban|unban</code></td></tr>
-                <tr><td>Kick</td><td><code>/api/punishments/kick</code></td></tr>
-                <tr><td>Warn</td><td><code>/api/punishments/warn</code></td></tr>
-                <tr><td>Team Changed</td><td><code>/api/tracking/teamchange</code></td></tr>
-            </table>
+<span class="cmt">-- Side commands</span>
+Shield.<span class="fn">PlayerSetInventory</span>(playerName, playerUserId, inventory)
+Shield.<span class="fn">Addlocation</span>(locationName, positionsArray, text) <span class="cmt">-- auto-matches img/&lt;locationName&gt;.png if present</span>
+Shield.<span class="fn">Message</span>(toWho, message) <span class="cmt">-- @everyone | @me | username</span>
+Shield.<span class="fn">GetServerCode</span>()</pre>
+            </div>
         </div>
 
     </div><!-- end .content -->
@@ -1003,7 +1161,8 @@ function toggleTheme() {
 function scrollTo(id) {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     document.querySelectorAll('.sidebar-link').forEach(l => l.classList.remove('active'));
-    event.target.classList.add('active');
+    const evt = window.event;
+    if (evt && evt.target) evt.target.classList.add('active');
 }
 function toggleEp(head) {
     head.closest('.endpoint-card').classList.toggle('open');

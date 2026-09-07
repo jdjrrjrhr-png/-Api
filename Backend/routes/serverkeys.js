@@ -3,31 +3,24 @@
 const express = require('express');
 const router  = express.Router();
 const {
-    serverApiKeys, apiKeyRegenCooldowns, liveServers,
+    serverApiKeys, apiKeyGrace, apiKeyRegenCooldowns, liveServers,
     activeAdmins, commandsQueue, generateServerApiKey, pushAuditLog
 } = require('../state');
-const { verifyAdminAccess, verifyRobloxToken } = require('../middleware/auth');
-const { SERVER_OWNERS } = require('../state');
+const { verifyAdminAccess, verifyOwnerAccess, verifyServerApiKey } = require('../middleware/auth');
 
 const REGEN_COOLDOWN = 15 * 60 * 1000; // 15 minutes
+const ROTATION_GRACE_MS = 60 * 1000;   // old key still accepted for 60s after a rotation
 
 /** GET current key info (masked) — owner only */
-router.get('/:serverCode', verifyAdminAccess, (req, res) => {
+router.get('/:serverCode', verifyOwnerAccess, (req, res) => {
     const { serverCode } = req.params;
-    const userId = req.adminId;
-
-    if (!SERVER_OWNERS.includes(userId)) {
-        return res.status(403).json({ error: 'Owner access required' });
-    }
 
     const keyInfo = serverApiKeys[serverCode];
     if (!keyInfo) {
-        // Auto-generate on first request
         const newKey = generateServerApiKey();
         serverApiKeys[serverCode] = { key: newKey, generatedAt: Date.now() };
         return res.json({
-            maskedKey: newKey.replace(/(....-)(.+-.+)(-....)/,
-                (_, a, m, z) => a + m.replace(/[a-z0-9]/g, '*') + z),
+            maskedKey: maskKey(newKey),
             fullKey: newKey,
             generatedAt: serverApiKeys[serverCode].generatedAt,
             cooldownUntil: null
@@ -35,27 +28,27 @@ router.get('/:serverCode', verifyAdminAccess, (req, res) => {
     }
 
     const cooldown = apiKeyRegenCooldowns[serverCode];
-    const maskedKey = keyInfo.key.replace(
-        /^([a-z0-9]{4}-)([a-z0-9]{4}-[a-z0-9]{4}-)([a-z0-9]{4})$/,
-        (_, a, m, z) => a + m.replace(/[a-z0-9]/g, '*') + z
-    );
-
     res.json({
-        maskedKey,
+        maskedKey: maskKey(keyInfo.key),
         fullKey: keyInfo.key,
         generatedAt: keyInfo.generatedAt,
         cooldownUntil: cooldown && cooldown > Date.now() ? cooldown : null
     });
 });
 
-/** POST — regenerate key (owner only, 15min cooldown) */
-router.post('/:serverCode/regenerate', verifyAdminAccess, (req, res) => {
+function maskKey(key) {
+    // Mask every segment except the first and last, whatever the segment count.
+    const parts = key.split('-');
+    if (parts.length < 3) return key.replace(/./g, '*');
+    return parts.map((p, i) => (i === 0 || i === parts.length - 1) ? p : p.replace(/./g, '*')).join('-');
+}
+
+/** POST — regenerate key from the dashboard (owner only, 15min cooldown).
+ *  The old key keeps working for a short grace window so the live Roblox server's
+ *  current heartbeat cycle doesn't 401 before it picks up the new key. */
+router.post('/:serverCode/regenerate', verifyOwnerAccess, (req, res) => {
     const { serverCode } = req.params;
     const userId = req.adminId;
-
-    if (!SERVER_OWNERS.includes(userId)) {
-        return res.status(403).json({ error: 'Owner access required' });
-    }
 
     const cooldown = apiKeyRegenCooldowns[serverCode];
     if (cooldown && cooldown > Date.now()) {
@@ -63,27 +56,22 @@ router.post('/:serverCode/regenerate', verifyAdminAccess, (req, res) => {
         return res.status(429).json({ error: `Cooldown active`, remainingSeconds: remaining });
     }
 
+    const oldKey = serverApiKeys[serverCode]?.key || null;
     const newKey = generateServerApiKey();
     serverApiKeys[serverCode] = { key: newKey, generatedAt: Date.now() };
     apiKeyRegenCooldowns[serverCode] = Date.now() + REGEN_COOLDOWN;
 
-    // Notify the live Roblox server about the new key
+    if (oldKey) {
+        apiKeyGrace[serverCode] = { previousKey: oldKey, expiresAt: Date.now() + ROTATION_GRACE_MS };
+    }
+
+    // Tell the live Roblox server about the new key so it can update immediately
+    // instead of waiting to get 401'd.
     if (!commandsQueue[serverCode]) commandsQueue[serverCode] = [];
     commandsQueue[serverCode].push({
         action: 'api_key_changed',
         newKey,
         issuedAt: Date.now()
-    });
-
-    // Kick all admins out of this server's dashboard
-    Object.values(activeAdmins).forEach(admin => {
-        if (admin.serverCode === serverCode) {
-            admin.status        = 'Online';
-            admin.serverCode    = null;
-            admin.updatedAt     = new Date().toISOString();
-            admin.apiKeyChanged = true;
-            admin.apiKeyChangedAt = Date.now();
-        }
     });
 
     const admin = activeAdmins[userId];
@@ -96,19 +84,32 @@ router.post('/:serverCode/regenerate', verifyAdminAccess, (req, res) => {
     res.json({ success: true, cooldownUntil: apiKeyRegenCooldowns[serverCode] });
 });
 
-/** Roblox server calls this to validate its API key */
-router.post('/:serverCode/validate', verifyRobloxToken, (req, res) => {
+/** POST — Roblox module rotates its own key (e.g. dev changed it manually in Studio,
+ *  or this is the server's first-ever run and it's registering its generated key).
+ *  body: { oldKey, newKey } — oldKey may equal newKey (no-op confirmation), and may
+ *  be omitted only on first-ever registration for a serverCode. */
+router.post('/:serverCode/rotate-key', (req, res) => {
     const { serverCode } = req.params;
-    const { apiKey } = req.body;
+    const { oldKey, newKey } = req.body;
+    if (!newKey) return res.status(400).json({ error: 'newKey required' });
 
     const stored = serverApiKeys[serverCode];
     if (!stored) {
-        // First time — auto-register
-        serverApiKeys[serverCode] = { key: apiKey, generatedAt: Date.now() };
-        return res.json({ valid: true });
+        serverApiKeys[serverCode] = { key: newKey, generatedAt: Date.now() };
+        return res.json({ success: true, registered: true });
     }
 
-    res.json({ valid: stored.key === apiKey });
+    if (stored.key !== oldKey) {
+        return res.status(401).json({ error: 'oldKey does not match the current stored key' });
+    }
+
+    if (oldKey !== newKey) {
+        apiKeyGrace[serverCode] = { previousKey: stored.key, expiresAt: Date.now() + ROTATION_GRACE_MS };
+        serverApiKeys[serverCode] = { key: newKey, generatedAt: Date.now() };
+        pushAuditLog(serverCode, { type: 'api_key_rotated', source: 'roblox' });
+    }
+
+    res.json({ success: true });
 });
 
 module.exports = router;

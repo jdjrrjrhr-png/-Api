@@ -7,20 +7,7 @@ const {
     commandsQueue, activeAdmins, liveServers,
     generateCaseId, formatDuration, pushAuditLog, pushSessionChat
 } = require('../state');
-const { verifyAdminAccess, verifyRobloxToken, smartRateLimiter, getUserRole } = require('../middleware/auth');
-
-const discordWebhook = process.env.DiscordWebhookUrl;
-
-async function sendDiscordWebhook(embed) {
-    if (!discordWebhook) return;
-    try {
-        await fetch(discordWebhook, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ embeds: [embed] })
-        });
-    } catch {}
-}
+const { verifyAdminAccess, verifyServerApiKey, smartRateLimiter, getUserRole } = require('../middleware/auth');
 
 // ─── BAN ───
 router.post('/ban', smartRateLimiter, verifyAdminAccess, async (req, res) => {
@@ -88,19 +75,6 @@ router.post('/ban', smartRateLimiter, verifyAdminAccess, async (req, res) => {
         });
     }
 
-    await sendDiscordWebhook({
-        title: 'Player Banned',
-        color: 0xff0000,
-        fields: [
-            { name: 'Player',      value: `${bannedUserName} (${bannedUserId})`, inline: true },
-            { name: 'By',          value: `${admin?.username || responsibleUsername} (${responsibleId || req.adminId})`, inline: true },
-            { name: 'Duration',    value: formatDuration(parseInt(duration) || -1),  inline: true },
-            { name: 'Reason',      value: reason || 'No reason provided', inline: false },
-            { name: 'Case ID',     value: caseId, inline: true }
-        ],
-        timestamp: new Date().toISOString()
-    });
-
     res.json({ success: true, caseId });
 });
 
@@ -122,17 +96,6 @@ router.post('/unban', smartRateLimiter, verifyAdminAccess, async (req, res) => {
         targetUsername: prevBan?.username || String(userId),
         reason: reason || 'No reason provided',
         revocable: false
-    });
-
-    await sendDiscordWebhook({
-        title: 'Player Unbanned',
-        color: 0x00ff99,
-        fields: [
-            { name: 'Player', value: `${prevBan?.username || userId} (${userId})`, inline: true },
-            { name: 'By',     value: admin?.username || responsibleUsername || 'Unknown',    inline: true },
-            { name: 'Reason', value: reason || 'No reason provided', inline: false }
-        ],
-        timestamp: new Date().toISOString()
     });
 
     res.json({ success: true });
@@ -170,17 +133,6 @@ router.post('/kick', smartRateLimiter, verifyAdminAccess, async (req, res) => {
         targetUsername: target,
         reason: reason || 'No reason provided',
         revocable: false
-    });
-
-    await sendDiscordWebhook({
-        title: 'Player Kicked',
-        color: 0xff9900,
-        fields: [
-            { name: 'Player', value: `${target} (${targetId})`, inline: true },
-            { name: 'By',     value: admin?.username || 'Unknown',  inline: true },
-            { name: 'Reason', value: reason || 'No reason provided', inline: false }
-        ],
-        timestamp: new Date().toISOString()
     });
 
     res.json({ success: true });
@@ -231,18 +183,6 @@ router.post('/warn', smartRateLimiter, verifyAdminAccess, async (req, res) => {
         targetUsername: toWho,
         reason: reason || 'No reason provided',
         revocable: true
-    });
-
-    await sendDiscordWebhook({
-        title: 'Player Warned',
-        color: 0xffcc00,
-        fields: [
-            { name: 'Player',  value: `${toWho} (${toWhoId})`,                   inline: true },
-            { name: 'By',      value: admin?.username || responsibleUsername || 'Unknown', inline: true },
-            { name: 'Reason',  value: reason || 'No reason provided',             inline: false },
-            { name: 'Case ID', value: caseId,                                     inline: true }
-        ],
-        timestamp: new Date().toISOString()
     });
 
     res.json({ success: true, caseId });
@@ -358,7 +298,7 @@ router.get('/list', verifyAdminAccess, (req, res) => {
 // ─── ROBLOX MODULE: Accept punishment log (from server script) ───
 // These endpoints let the Roblox server tell the API "I executed this punishment"
 // so it appears in logs — they don't command the server back.
-router.post('/log', verifyRobloxToken, (req, res) => {
+router.post('/log', verifyServerApiKey, (req, res) => {
     const { serverCode, type, ...rest } = req.body;
     pushAuditLog(serverCode || 'global', {
         type: 'punishment',

@@ -1,0 +1,15 @@
+Place your TopdownMap.png in this directory.
+
+The map image should:
+- Cover the full playable area of your map
+- Be a top-down orthographic view
+- PNG format recommended for quality
+
+The map boundaries (X_min, X_max, Z_min, Z_max) in config.json
+must correspond exactly to the world boundaries this image covers.
+
+The normalization algorithm:
+  left% = ((x - X_min) / (X_max - X_min)) * 100
+  top%  = ((z - Z_min) / (Z_max - Z_min)) * 100
+
+places player markers at the correct pixel position over the image.
