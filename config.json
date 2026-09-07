@@ -17,7 +17,7 @@
   ],
   "heartbeatInterval": 2,
   "mapStreamInterval": 5,
-  "mapMinPlayers": 0,
+  "mapMinPlayers": 1,
   "maxAuditLogs": 25,
   "maxChatMessages": 30,
   "warnCaseIdLength": 6,
