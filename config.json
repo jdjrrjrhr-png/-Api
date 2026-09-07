@@ -1,9 +1,9 @@
 {
   "mapBounds": {
-    "X_min": -800,
-    "X_max": 800,
-    "Z_min": -800,
-    "Z_max": 800
+    "X_min": 558,
+    "X_max": -74,
+    "Z_min": 730,
+    "Z_max": 442
   },
   "mapImagePath": "/img/TopdownMap.png",
   "teams": [
@@ -17,7 +17,7 @@
   ],
   "heartbeatInterval": 2,
   "mapStreamInterval": 5,
-  "mapMinPlayers": 10,
+  "mapMinPlayers": 0,
   "maxAuditLogs": 25,
   "maxChatMessages": 30,
   "warnCaseIdLength": 6,
