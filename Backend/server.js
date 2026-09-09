@@ -9,8 +9,7 @@ const cookieParser = require('cookie-parser');
 
 const app = express();
 
-// ─── SHARED CONFIG (config.json is the single source of truth — nothing here
-// should re-declare its own copy of map bounds / intervals / limits) ───
+// ─── SHARED CONFIG ─────────────────────────────────────────────
 let appConfig = {};
 try {
     appConfig = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'config.json'), 'utf8'));
@@ -32,45 +31,24 @@ app.use((req, res, next) => {
 const frontendPath = path.join(__dirname, '..', 'Frontend');
 app.use(express.static(frontendPath));
 
-// Serve map image / location icons
 const imgPath = path.join(__dirname, '..', 'img');
 app.use('/img', express.static(imgPath));
 
-// Expose shared config to the frontend without duplicating it in JS
 app.get('/config.json', (req, res) => res.json(appConfig));
 
-// ─── ROUTES ───────────────────────────────────────────────────
-
-app.use('/oauth',             require('./routes/auth'));
-app.use('/api/auth',          require('./routes/auth'));
-app.use('/api/servers',       require('./routes/servers'));
-app.use('/api/punishments',   require('./routes/punishments'));
-app.use('/api/tracking',      require('./routes/tracking'));
-app.use('/api/audit',         require('./routes/audit'));
-app.use('/api/serverkeys',    require('./routes/serverkeys'));
-
-// Duty + staff (mounted on /api/admin for backwards compat)
-const serversRouter = require('./routes/servers');
-app.post('/api/admin/duty',         serversRouter);
-app.get('/api/admin/staff',         serversRouter);
-app.post('/api/admin/disconnect',   require('./routes/auth'));
-
+// ─── ROUTES & ROUTERS ─────────────────────────────────────────
 const authRouter    = require('./routes/auth');
-const serversRouter  = require('./routes/servers');
+const serversRouter = require('./routes/servers');
 
-app.use('/oauth',             authRouter);
-app.use('/api/auth',          authRouter);
-app.use('/api/servers',       serversRouter);
-app.use('/api/punishments',   require('./routes/punishments'));
-app.use('/api/tracking',      require('./routes/tracking'));
-app.use('/api/audit',         require('./routes/audit'));
-app.use('/api/serverkeys',    require('./routes/serverkeys'));
+app.use('/oauth',           authRouter);
+app.use('/api/auth',        authRouter);
+app.use('/api/servers',     serversRouter);
+app.use('/api/punishments', require('./routes/punishments'));
+app.use('/api/tracking',    require('./routes/tracking'));
+app.use('/api/audit',       require('./routes/audit'));
+app.use('/api/serverkeys',  require('./routes/serverkeys'));
 
-// Duty + staff legacy aliases the dashboard frontend actually calls.
-// (Previously these mounted the WHOLE sub-router as a single-route handler,
-// which never matched anything internally since req.url wasn't rewritten —
-// they were silently dead. Rewriting req.url before handing off to the real
-// router fixes that.)
+// Duty + staff legacy aliases
 app.post('/api/admin/duty', (req, res, next) => {
     req.url = '/duty';
     serversRouter.handle(req, res, next);
@@ -84,24 +62,16 @@ app.post('/api/admin/disconnect', (req, res, next) => {
     authRouter.handle(req, res, next);
 });
 
-
 // ─── SPA FALLBACK ─────────────────────────────────────────────
-// Serve index.html for all /Api/* routes (client-side routing)
-
-app.get('/Api*', (req, res) => {
-
 app.get(/^\/Api/i, (req, res) => {
-
     res.sendFile(path.join(frontendPath, 'Api', 'index.html'));
 });
 
-// Root with no path at all -> send people to the docs/dashboard entry point
-// instead of Express's bare "Cannot GET /".
 app.get('/', (req, res) => {
     res.redirect('/Api');
 });
 
-// ─── 404 (any route we don't recognize) ────────────────────────
+// ─── 404 HANDLER ──────────────────────────────────────────────
 app.use((req, res) => {
     res.status(404).type('html').send(notFoundPage());
 });
