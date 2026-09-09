@@ -3,147 +3,116 @@
 const express = require('express');
 const router  = express.Router();
 const {
-    warnStore, banStore, freezeStore,
-    commandsQueue, activeAdmins, liveServers,
-    generateCaseId, formatDuration, pushAuditLog, pushSessionChat
+    warnStore, banStore, freezeStore, commandsQueue, activeAdmins,
+    generateCaseId, pushAuditLog, pushSessionChat, toggleFreezeState, trackShiftPunishment
 } = require('../state');
-const { verifyAdminAccess, verifyServerApiKey, smartRateLimiter, getUserRole } = require('../middleware/auth');
+const { verifyServerAdmin, verifyRobloxToken, smartRateLimiter } = require('../middleware/auth');
 
 // ─── BAN ───
-router.post('/ban', smartRateLimiter, verifyAdminAccess, async (req, res) => {
-    const {
-        serverCode, bannedUserName, bannedUserId,
-        responsibleId, responsibleUsername,
-        duration, reason
-    } = req.body;
-
+router.post('/ban', smartRateLimiter, verifyServerAdmin, (req, res) => {
+    const { serverCode, bannedUserName, bannedUserId, duration, reason } = req.body;
     if (!bannedUserId) return res.status(400).json({ error: 'bannedUserId required' });
 
     const caseId    = generateCaseId();
     const unbanTime = duration === -1 ? -1 : Date.now() + parseInt(duration) * 1000;
-    const admin     = activeAdmins[req.adminId];
+    const admin     = activeAdmins[req.callerId];
 
-    const banEntry = {
+    banStore[bannedUserId] = {
         caseId,
         userId: parseInt(bannedUserId),
         username: bannedUserName || String(bannedUserId),
-        responsibleId: responsibleId || req.adminId,
-        responsibleUsername: responsibleUsername || admin?.username || 'Unknown',
+        serverCode,
+        responsibleId: req.callerId,
+        responsibleUsername: admin?.username || 'Unknown',
         duration: parseInt(duration) || -1,
         reason: reason || 'No reason provided',
         bannedAt: Date.now(),
         unbanTime
     };
 
-    banStore[bannedUserId] = banEntry;
-
-    // Queue kick command for live server
-    if (serverCode && commandsQueue[serverCode] !== undefined) {
-        if (!commandsQueue[serverCode]) commandsQueue[serverCode] = [];
-        commandsQueue[serverCode].push({
-            action: 'ban',
-            target: bannedUserName,
-            targetId: bannedUserId,
-            reason,
-            duration: parseInt(duration) || -1,
-            senderId: req.adminId,
-            senderName: admin?.username || 'Unknown',
-            issuedAt: Date.now()
-        });
-    }
-
-    pushAuditLog(serverCode || 'global', {
-        type: 'punishment',
-        punishmentType: 'ban',
-        caseId,
-        actorId: req.adminId,
-        actorUsername: admin?.username || responsibleUsername || 'Unknown',
-        targetId: parseInt(bannedUserId),
-        targetUsername: bannedUserName,
-        reason: reason || 'No reason provided',
-        duration: parseInt(duration) || -1,
-        unbanTime,
-        revocable: true
+    if (!commandsQueue[serverCode]) commandsQueue[serverCode] = [];
+    commandsQueue[serverCode].push({
+        action: 'ban', target: bannedUserName, targetId: bannedUserId,
+        reason, duration: parseInt(duration) || -1,
+        senderId: req.callerId, senderName: admin?.username || 'Unknown', issuedAt: Date.now()
     });
 
-    // System chat message
-    if (serverCode) {
-        pushSessionChat(serverCode, {
-            type: 'system',
-            text: `${admin?.username || 'Admin'} banned ${bannedUserName || bannedUserId}${reason ? ` — ${reason}` : ''}`,
-            timestamp: Date.now()
-        });
-    }
+    trackShiftPunishment(req.callerId);
+
+    pushAuditLog(serverCode, {
+        type: 'punishment', punishmentType: 'ban', caseId,
+        actorId: req.callerId, actorUsername: admin?.username || 'Unknown',
+        targetId: parseInt(bannedUserId), targetUsername: bannedUserName,
+        reason: reason || 'No reason provided', duration: parseInt(duration) || -1,
+        unbanTime, revocable: true
+    });
+
+    pushSessionChat(serverCode, {
+        type: 'system',
+        text: `${admin?.username || 'Admin'} banned ${bannedUserName || bannedUserId}${reason ? ` — ${reason}` : ''}`,
+        timestamp: Date.now()
+    });
 
     res.json({ success: true, caseId });
 });
 
 // ─── UNBAN ───
-router.post('/unban', smartRateLimiter, verifyAdminAccess, async (req, res) => {
-    const { userId, responsibleUsername, reason } = req.body;
+router.post('/unban', smartRateLimiter, verifyServerAdmin, (req, res) => {
+    const { serverCode, userId, reason } = req.body;
     if (!userId) return res.status(400).json({ error: 'userId required' });
 
-    const admin = activeAdmins[req.adminId];
+    const admin = activeAdmins[req.callerId];
     const prevBan = banStore[userId];
     delete banStore[userId];
 
-    pushAuditLog('global', {
-        type: 'punishment',
-        punishmentType: 'unban',
-        actorId: req.adminId,
-        actorUsername: admin?.username || responsibleUsername || 'Unknown',
-        targetId: parseInt(userId),
-        targetUsername: prevBan?.username || String(userId),
-        reason: reason || 'No reason provided',
-        revocable: false
+    pushAuditLog(serverCode, {
+        type: 'punishment', punishmentType: 'unban',
+        actorId: req.callerId, actorUsername: admin?.username || 'Unknown',
+        targetId: parseInt(userId), targetUsername: prevBan?.username || String(userId),
+        reason: reason || 'No reason provided', revocable: false
     });
 
     res.json({ success: true });
 });
 
-// ─── GET BAN ───
-router.get('/ban/:userId', verifyAdminAccess, (req, res) => {
+router.get('/ban/:userId', verifyServerAdmin, (req, res) => {
     const ban = banStore[req.params.userId];
     if (!ban) return res.status(404).json({ error: 'No active ban' });
     res.json(ban);
 });
 
-// ─── KICK ───
-router.post('/kick', smartRateLimiter, verifyAdminAccess, async (req, res) => {
-    const { serverCode, target, targetId, targetUsername, reason } = req.body;
-    if (!serverCode || !target) return res.status(400).json({ error: 'serverCode and target required' });
+// ─── KICK ─── (reason optional; hold-to-confirm is enforced client-side)
+router.post('/kick', smartRateLimiter, verifyServerAdmin, (req, res) => {
+    const { serverCode, target, targetId, reason } = req.body;
+    if (!target) return res.status(400).json({ error: 'target required' });
 
-    const admin = activeAdmins[req.adminId];
+    const admin = activeAdmins[req.callerId];
 
     if (!commandsQueue[serverCode]) commandsQueue[serverCode] = [];
     commandsQueue[serverCode].push({
         action: 'kick', target, targetId,
         reason: reason || 'No reason provided',
-        senderId: req.adminId,
-        senderName: admin?.username || 'Unknown',
-        issuedAt: Date.now()
+        senderId: req.callerId, senderName: admin?.username || 'Unknown', issuedAt: Date.now()
     });
 
+    trackShiftPunishment(req.callerId);
+
     pushAuditLog(serverCode, {
-        type: 'punishment',
-        punishmentType: 'kick',
-        actorId: req.adminId,
-        actorUsername: admin?.username || 'Unknown',
-        targetId: parseInt(targetId) || null,
-        targetUsername: target,
-        reason: reason || 'No reason provided',
-        revocable: false
+        type: 'punishment', punishmentType: 'kick',
+        actorId: req.callerId, actorUsername: admin?.username || 'Unknown',
+        targetId: parseInt(targetId) || null, targetUsername: target,
+        reason: reason || 'No reason provided', revocable: false
     });
 
     res.json({ success: true });
 });
 
 // ─── WARN ───
-router.post('/warn', smartRateLimiter, verifyAdminAccess, async (req, res) => {
-    const { serverCode, toWho, toWhoId, responsibleId, responsibleUsername, reason, time } = req.body;
+router.post('/warn', smartRateLimiter, verifyServerAdmin, (req, res) => {
+    const { serverCode, toWho, toWhoId, reason, time } = req.body;
     if (!toWhoId) return res.status(400).json({ error: 'toWhoId required' });
 
-    const admin  = activeAdmins[req.adminId];
+    const admin  = activeAdmins[req.callerId];
     const caseId = generateCaseId();
 
     if (!warnStore[toWhoId]) warnStore[toWhoId] = [];
@@ -151,49 +120,38 @@ router.post('/warn', smartRateLimiter, verifyAdminAccess, async (req, res) => {
         caseId,
         targetId: parseInt(toWhoId),
         targetUsername: toWho,
-        responsibleId: responsibleId || req.adminId,
-        responsibleUsername: responsibleUsername || admin?.username || 'Unknown',
+        serverCode,
+        responsibleId: req.callerId,
+        responsibleUsername: admin?.username || 'Unknown',
         reason: reason || 'No reason provided',
         warnedAt: Date.now(),
         expiresAt: time && time !== -1 ? Date.now() + parseInt(time) * 1000 : -1
     });
 
-    // Queue warn command to notify in-game
-    if (serverCode) {
-        if (!commandsQueue[serverCode]) commandsQueue[serverCode] = [];
-        commandsQueue[serverCode].push({
-            action: 'warn',
-            target: toWho,
-            targetId: toWhoId,
-            reason,
-            caseId,
-            senderId: req.adminId,
-            senderName: admin?.username || 'Unknown',
-            issuedAt: Date.now()
-        });
-    }
+    if (!commandsQueue[serverCode]) commandsQueue[serverCode] = [];
+    commandsQueue[serverCode].push({
+        action: 'warn', target: toWho, targetId: toWhoId, reason, caseId,
+        senderId: req.callerId, senderName: admin?.username || 'Unknown', issuedAt: Date.now()
+    });
 
-    pushAuditLog(serverCode || 'global', {
-        type: 'punishment',
-        punishmentType: 'warn',
-        caseId,
-        actorId: req.adminId,
-        actorUsername: admin?.username || responsibleUsername || 'Unknown',
-        targetId: parseInt(toWhoId),
-        targetUsername: toWho,
-        reason: reason || 'No reason provided',
-        revocable: true
+    trackShiftPunishment(req.callerId);
+
+    pushAuditLog(serverCode, {
+        type: 'punishment', punishmentType: 'warn', caseId,
+        actorId: req.callerId, actorUsername: admin?.username || 'Unknown',
+        targetId: parseInt(toWhoId), targetUsername: toWho,
+        reason: reason || 'No reason provided', revocable: true
     });
 
     res.json({ success: true, caseId });
 });
 
 // ─── UNWARN ───
-router.post('/unwarn', smartRateLimiter, verifyAdminAccess, async (req, res) => {
+router.post('/unwarn', smartRateLimiter, verifyServerAdmin, (req, res) => {
     const { serverCode, who, whoId, caseId } = req.body;
     if (!whoId || !caseId) return res.status(400).json({ error: 'whoId and caseId required' });
 
-    const admin = activeAdmins[req.adminId];
+    const admin = activeAdmins[req.callerId];
     if (!warnStore[whoId]) return res.status(404).json({ error: 'No warns found' });
 
     const idx = warnStore[whoId].findIndex(w => w.caseId === caseId);
@@ -201,111 +159,73 @@ router.post('/unwarn', smartRateLimiter, verifyAdminAccess, async (req, res) => 
 
     const removed = warnStore[whoId].splice(idx, 1)[0];
 
-    pushAuditLog(serverCode || 'global', {
-        type: 'punishment',
-        punishmentType: 'unwarn',
-        caseId,
-        actorId: req.adminId,
-        actorUsername: admin?.username || 'Unknown',
-        targetId: parseInt(whoId),
-        targetUsername: who || removed.targetUsername,
-        reason: `Removed warn: ${removed.reason}`,
-        revocable: false
+    pushAuditLog(serverCode, {
+        type: 'punishment', punishmentType: 'unwarn', caseId,
+        actorId: req.callerId, actorUsername: admin?.username || 'Unknown',
+        targetId: parseInt(whoId), targetUsername: who || removed.targetUsername,
+        reason: `Removed warn: ${removed.reason}`, revocable: false
     });
 
     res.json({ success: true, removed });
 });
 
-// ─── GET WARNS ───
-router.get('/warns/:userId', verifyAdminAccess, (req, res) => {
-    const warns = (warnStore[req.params.userId] || []).map((w, i) => ({
-        ...w,
-        index: i + 1
-    }));
+router.get('/warns/:userId', verifyServerAdmin, (req, res) => {
+    const warns = (warnStore[req.params.userId] || []).map((w, i) => ({ ...w, index: i + 1 }));
     res.json({ warns, total: warns.length });
 });
 
-// ─── FREEZE / UNFREEZE ───
-router.post('/freeze', smartRateLimiter, verifyAdminAccess, (req, res) => {
-    const { serverCode, targetUsername, targetId, responsibleId, responsibleUsername } = req.body;
-    if (!serverCode || !targetId) return res.status(400).json({ error: 'serverCode and targetId required' });
+// ─── FREEZE / UNFREEZE ─── (delegates to the SAME toggle used by the
+// generic /commands endpoint — this endpoint and that one can never
+// disagree about a player's frozen state again)
+router.post('/freeze', smartRateLimiter, verifyServerAdmin, (req, res) => {
+    const { serverCode, targetUsername, targetId } = req.body;
+    if (!targetId) return res.status(400).json({ error: 'targetId required' });
 
-    const admin = activeAdmins[req.adminId];
-    const isFrozen = !!freezeStore[targetId];
+    const admin  = activeAdmins[req.callerId];
+    const result = toggleFreezeState(serverCode, targetId, targetUsername, req.callerId, admin?.username);
+    trackShiftPunishment(req.callerId);
 
-    if (isFrozen) {
-        delete freezeStore[targetId];
-        if (!commandsQueue[serverCode]) commandsQueue[serverCode] = [];
-        commandsQueue[serverCode].push({
-            action: 'unfreeze',
-            target: targetUsername,
-            targetId,
-            senderId: req.adminId,
-            senderName: admin?.username || 'Unknown',
-            issuedAt: Date.now()
-        });
-        pushAuditLog(serverCode, {
-            type: 'punishment', punishmentType: 'unfreeze',
-            actorId: req.adminId, actorUsername: admin?.username || 'Unknown',
-            targetId: parseInt(targetId), targetUsername, revocable: false
-        });
-        return res.json({ success: true, action: 'unfrozen' });
-    } else {
-        freezeStore[targetId] = { targetId, targetUsername, frozenAt: Date.now(), responsibleId: req.adminId };
-        if (!commandsQueue[serverCode]) commandsQueue[serverCode] = [];
-        commandsQueue[serverCode].push({
-            action: 'freeze',
-            target: targetUsername,
-            targetId,
-            senderId: req.adminId,
-            senderName: admin?.username || 'Unknown',
-            issuedAt: Date.now()
-        });
-        pushAuditLog(serverCode, {
-            type: 'punishment', punishmentType: 'freeze',
-            actorId: req.adminId, actorUsername: admin?.username || 'Unknown',
-            targetId: parseInt(targetId), targetUsername, revocable: true
-        });
-        return res.json({ success: true, action: 'frozen' });
-    }
-});
-
-// ─── GET ALL PUNISHED USERS ───
-router.get('/list', verifyAdminAccess, (req, res) => {
-    const type = req.query.type; // 'ban' | 'warn' | 'freeze' | 'kick'
-
-    if (type === 'ban') {
-        return res.json({ items: Object.values(banStore) });
-    }
-    if (type === 'warn') {
-        const allWarns = [];
-        Object.values(warnStore).forEach(warns => {
-            warns.forEach(w => allWarns.push(w));
-        });
-        return res.json({ items: allWarns });
-    }
-    if (type === 'freeze') {
-        return res.json({ items: Object.values(freezeStore) });
-    }
-
-    res.json({
-        bans: Object.values(banStore).length,
-        warns: Object.values(warnStore).reduce((a, b) => a + b.length, 0),
-        freezes: Object.values(freezeStore).length
+    pushAuditLog(serverCode, {
+        type: 'punishment', punishmentType: result.action,
+        actorId: req.callerId, actorUsername: admin?.username || 'Unknown',
+        targetId: parseInt(targetId), targetUsername, revocable: result.action === 'freeze'
     });
+
+    res.json({ success: true, action: result.action });
 });
 
-// ─── ROBLOX MODULE: Accept punishment log (from server script) ───
-// These endpoints let the Roblox server tell the API "I executed this punishment"
-// so it appears in logs — they don't command the server back.
-router.post('/log', verifyServerApiKey, (req, res) => {
+// ─── PUNISHED USERS LIST — server-scoped, with an "all" default tab ───
+router.get('/list', verifyServerAdmin, (req, res) => {
+    const code = req.query.serverCode;
+    const type = req.query.type || 'all';
+
+    const bans = Object.values(banStore)
+        .filter(b => b.serverCode === code)
+        .map(b => ({ ...b, itemType: 'ban', timestamp: b.bannedAt }));
+
+    const warns = [];
+    Object.values(warnStore).forEach(arr => arr.forEach(w => {
+        if (w.serverCode === code) warns.push({ ...w, itemType: 'warn', timestamp: w.warnedAt });
+    }));
+
+    const freezes = Object.values(freezeStore)
+        .filter(f => f.serverCode === code)
+        .map(f => ({ ...f, itemType: 'freeze', timestamp: f.frozenAt }));
+
+    if (type === 'ban')    return res.json({ items: bans });
+    if (type === 'warn')   return res.json({ items: warns });
+    if (type === 'freeze') return res.json({ items: freezes });
+
+    const all = [...bans, ...warns, ...freezes].sort((a, b) => b.timestamp - a.timestamp);
+    res.json({ items: all });
+});
+
+// ─── ROBLOX: accept a punishment log entry (no command sent back) ───
+router.post('/log', verifyRobloxToken, (req, res) => {
     const { serverCode, type, ...rest } = req.body;
     pushAuditLog(serverCode || 'global', {
-        type: 'punishment',
-        punishmentType: type,
-        ...rest,
-        source: 'roblox',
-        timestamp: Date.now()
+        type: 'punishment', punishmentType: type, ...rest,
+        source: 'roblox', timestamp: Date.now()
     });
     res.json({ success: true });
 });

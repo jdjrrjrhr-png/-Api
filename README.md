@@ -1,6 +1,116 @@
-# Emergency Hamburg API — v2.0
+# Emergency Hamburg API — v2.1 (Backend Pass)
 
-A complete real-time moderation and management platform for Emergency Hamburg Roblox servers.
+This is **Part 1 of 3** — the Backend has been fully rewritten to fix the
+architectural problems found in v2.0. Frontend and the Roblox module are
+next; the copies of them in this package still reflect the *old* backend
+contract in a few places (noted below) and will be updated in the next
+two passes.
+
+---
+
+## What changed in this pass, and why
+
+### 1. No more static admin arrays
+`ALLOWED_ADMINS`, `INGAME_MODS`, `SERVER_OWNERS` are **gone**. Permission
+is now 100% dynamic and per-server, driven entirely by two Roblox module
+calls:
+
+```lua
+Shield.SetServerOwner(yourRobloxUserId)
+Shield.UpdateAdmins({ 123456, 789012 })
+```
+
+A user's role for a given server is resolved live — there's nothing to
+edit in this codebase to grant access. This is also why removing your own
+ID from a hardcoded array used to break your own login: that array was
+the *only* thing granting access, and this pass removes it entirely.
+
+### 2. Token vs. API key are now cleanly separate concepts
+- **`ApiToken`** (`.env`) — one shared secret for every Roblox→API call
+  (heartbeat, `SetServerOwner`, `UpdateAdmins`, all game events). Never
+  appears in any dashboard response.
+- **Server API key** — this **is** the `serverCode` used throughout the
+  URLs. It's generated **by the Roblox server itself**, not by the API,
+  and the API just registers/validates it via the new
+  `POST /api/servers/setkey` endpoint. It is never rendered in plaintext
+  anywhere except the owner-only key panel (masked by default).
+
+New key format: 5 segments, `-`-separated, each a random mix of
+upper/lower/digit/`!@#$`, checked for global uniqueness on issue.
+
+### 3. Root cause of "Staff Status stuck loading forever"
+The old `server.js` mounted `/api/admin/duty` and `/api/admin/staff` by
+passing an entire sub-router directly into `app.post()`/`app.get()`
+instead of `app.use()`. That never actually matched — both endpoints were
+silently 404ing the whole time. They're properly registered now under
+`/api/servers/duty` and `/api/servers/:serverCode/staff`.
+
+### 4. Root cause of freeze/unfreeze never working
+The dashboard was calling the generic `/api/servers/:code/commands`
+endpoint for freeze actions, which always queued `freeze` and had no
+concept of toggling. The dedicated toggle-aware logic existed but was
+never reached. Both endpoints now share one `toggleFreezeState()`
+function in `state.js` — they can't diverge again. This also fixes
+"Punished Users → Freeze" always being empty (it was reading a store
+that nothing was ever writing to).
+
+### 5. Root cause of wrong map positions
+The frontend had `X_min/X_max/Z_min/Z_max` hardcoded, completely
+disconnected from `config.json`. `config.json` is now the actual source
+of truth — the backend loads it once (`Backend/config.js`) and serves it
+at `GET /api/config`. The frontend and the Roblox module (next passes)
+both fetch this instead of hardcoding values.
+
+### 6. Root cause of the garbled code shown to everyone
+The dashboard topbar was rendering the raw `serverCode` — which is now
+your API key — to every viewer, not just the owner. Every server-scoped
+response now includes a `maskedServerCode` field for general display;
+the full key is only ever returned from the owner-gated
+`GET /api/serverkeys/:serverCode` endpoint.
+
+### 7. Empty-server dashboard eviction (5s grace)
+When a server's player count hits 0, a grace timer starts. If nobody
+rejoins within `config.json`'s `emptyServerGraceSeconds` (default 5),
+every admin currently viewing that server's dashboard is evicted back to
+the server list — **without** tearing down the live server or sending a
+real shutdown command to Roblox, since the server process is still
+running and heartbeating normally, just empty. If someone rejoins in
+time, the timer is cancelled.
+
+### 8. Position streaming — WebSocket + strict gating
+- Position packets are now pushed over WebSocket (`/ws`) instead of only
+  being polled, and the interval dropped to `1.3s` (config-driven).
+- The backend now computes `dashboardWatching` (nobody was tracking this
+  before, so Lua's own "don't send if not watched" check was comparing
+  against `nil` and behaving unpredictably) and enforces it **and** the
+  minimum player count server-side too, so a stray packet is dropped
+  rather than displayed even if Lua's own gating logic is behind.
+
+### 9. Discord webhook system removed
+You said you're building your own bot — every `sendDiscordWebhook` call
+and `DiscordWebhookUrl` reference has been removed from the punishment
+and tracking routes, and from `.env.example`.
+
+### 10. Everything else addressed this pass
+- `Start Shift` while on break now resumes directly to on-duty instead
+  of being rejected (frontend will label this "Continue Shift").
+- Duty actions now have a server-side cooldown (`dutyActionCooldownSeconds`)
+  so the buttons can't be spammed.
+- Ban/warn/freeze entries are now tagged with `serverCode`, so
+  "Punished Users" is properly scoped per server, with a new default
+  `all` tab merging all three types.
+- `Uptime: Unknown` — the players/detail endpoints now always include
+  `startTime` and `teamsSummary`.
+- Owner tag vs. Admin tag — `getServerRole()` returns exactly one role,
+  never both, so the double-tag bug can't happen at the data layer.
+- Location markers resolve their image at **read time** (checking `/img`
+  for `<locationName>.png`), so dropping in a new image just works
+  without re-sending the location.
+- `message`/`health`/`lock`/`unlock` commands are now first-class,
+  audit-logged, and carry full requester identity (username + userId)
+  through to Roblox.
+- A friendly `404.html` replaces Express's bare "Cannot GET /" for any
+  route outside `/Api`.
 
 ---
 
@@ -9,231 +119,102 @@ A complete real-time moderation and management platform for Emergency Hamburg Ro
 ```
 EmergencyHamburg/
 ├── Backend/
-│   ├── server.js              # Express entry point
-│   ├── state.js               # Shared in-memory state
+│   ├── server.js              # Express + WebSocket entry point
+│   ├── state.js                # All in-memory state + the new permission model
+│   ├── config.js               # Loads config.json once, exposes getConfig()
+│   ├── ws.js                   # WebSocket server (position streaming)
 │   ├── package.json
-│   ├── .env.example           # Copy to .env and fill in values
+│   ├── .env.example
 │   ├── middleware/
-│   │   └── auth.js            # Token + session verification
+│   │   └── auth.js             # verifyServerAdmin / verifyServerOwner / verifyRobloxToken
 │   └── routes/
-│       ├── auth.js            # OAuth + session management
-│       ├── servers.js         # Heartbeat, commands, duty, chat
-│       ├── punishments.js     # Ban, kick, warn, freeze
-│       ├── tracking.js        # Player events, game logs
-│       ├── audit.js           # Audit log endpoints
-│       └── serverkeys.js      # Server API key management
+│       ├── auth.js             # OAuth + session (no global role)
+│       ├── servers.js          # Heartbeat, commands, duty, staff, stats, chat, positions
+│       ├── punishments.js      # Ban, kick, warn, freeze (server-scoped)
+│       ├── tracking.js         # Player + game events
+│       ├── audit.js            # Audit log read/write/revoke
+│       ├── serverkeys.js       # Owner-only API key view/rotate
+│       └── config.js           # GET /api/config
 │
 ├── Frontend/
-│   └── Api/
-│       ├── index.html         # Landing page  (/Api)
-│       ├── Document/
-│       │   └── index.html     # Documentation (/Api/Document)
-│       └── Dashboard/
-│           ├── index.html     # Dashboard SPA (/Api/Dashboard)
-│           ├── app.js         # All dashboard JavaScript
-│           └── style.css      # Design system
+│   ├── 404.html                 # NEW — friendly not-found page
+│   └── Api/                     # Unchanged this pass — next pass rewrites this
 │
-├── RobloxModule/
-│   └── ShieldModule.lua       # Roblox server module
+├── RobloxModule/                # Unchanged this pass — next pass rewrites this
+│                                 # (still uses the OLD key-exchange flow for now)
 │
 ├── img/
-│   └── TopdownMap.png         # Place your map image here
-│
-└── config.json                # Map bounds and settings
+└── config.json                  # Now the actual source of truth (see above)
 ```
 
 ---
 
 ## Quick Start
 
-### 1. Set up the backend
-
 ```bash
 cd Backend
 npm install
 cp .env.example .env
-# Edit .env with your values (see below)
+# fill in ApiToken / ClientId / ClientSecret / RedirectURI
 npm start
 ```
 
-### 2. Environment variables (`.env`)
-
-```env
-PORT=3000
-ApiToken=your-secret-api-token-here
-ClientId=your-roblox-oauth-client-id
-ClientSecret=your-roblox-oauth-client-secret
-RedirectURI=https://yourdomain.com/oauth/callback
-SessionSecret=a-random-64-char-secret
-DiscordWebhookUrl=https://discord.com/api/webhooks/...
-```
-
-- **ApiToken**: A secret string you choose. Put the same value in `ShieldModule.lua` → `CONFIG.API_TOKEN`.
-- **ClientId / ClientSecret**: Create an OAuth app at https://create.roblox.com/dashboard/credentials.
-- **RedirectURI**: Must exactly match the URI registered in your Roblox OAuth app. Set it to `https://yourdomain.com/oauth/callback`.
-
-### 3. Admin user IDs
-
-Open `Backend/state.js` and edit:
-
-```js
-const ALLOWED_ADMINS = [YOUR_USER_ID, ...];   // Can use dashboard
-const SERVER_OWNERS  = [YOUR_USER_ID];         // Full access + API key management
-```
-
-### 4. Map image
-
-Place your top-down map image at `img/TopdownMap.png`.
-
-Update map boundaries in `config.json` to match your game world:
-
-```json
-{
-  "mapBounds": {
-    "X_min": -800,
-    "X_max": 800,
-    "Z_min": -800,
-    "Z_max": 800
-  }
-}
-```
-
-### 5. Roblox Module
-
-1. In Roblox Studio, create a `ModuleScript` in **ServerScriptService** named `ShieldModule`.
-2. Paste the contents of `RobloxModule/ShieldModule.lua`.
-3. Update `CONFIG.BASE_URL` to your deployed API URL.
-4. Update `CONFIG.API_TOKEN` to match the `ApiToken` in your `.env`.
-
-**Usage in a server Script:**
+No admin IDs to edit anywhere. Access is granted from Roblox:
 
 ```lua
 local Shield = require(game.ServerScriptService.ShieldModule)
-
--- Log a shots fired event
-Shield.ShotsFired("PlayerA", 123, "PlayerB", 456, "Pistol", 120, -80)
-
--- Warn a player
-Shield.Warn("BadPlayer", 789, "AdminName", 111, "RDM", -1)
-
--- Set server name + join code
-Shield.ServerSetName("Server Alpha")
-Shield.ServerSetJoinCode("ALPHA1")
+Shield.SetServerOwner(YOUR_ROBLOX_USER_ID)
+Shield.UpdateAdmins({ 123456789, 987654321 })
 ```
 
 ---
 
-## Routes
+## New / changed endpoints this pass
 
-| URL | Description |
-|-----|-------------|
-| `/Api` | Landing page |
-| `/Api/Document` | API documentation |
-| `/Api/Dashboard` | Server list (requires login) |
-| `/Api/Dashboard/:serverCode` | Server management view |
+| Method | Endpoint | Notes |
+|---|---|---|
+| POST | `/api/servers/setkey` | Roblox registers/rotates its own key. `{ oldKey, newKey }`, `oldKey === newKey` on first boot. |
+| POST | `/api/servers/:code/setowner` | `Shield.SetServerOwner` lands here |
+| GET | `/api/servers/:code/staff` | Server-scoped staff list (replaces the broken `/api/admin/staff`) |
+| POST | `/api/servers/duty` | Replaces the broken `/api/admin/duty` |
+| GET | `/api/servers/:code/stats?range=week\|3days\|24h` | Hourly player-count series + busiest day/hour insights |
+| GET | `/api/servers/:code/staff-activity?range=...` | Full shift-history table, sorted by most active |
+| GET | `/api/config` | The real `config.json`, for frontend + Roblox to consume |
+| GET | `/api/punishments/list?type=all\|ban\|warn\|freeze&serverCode=X` | Now server-scoped, `all` is the new default |
+| WS | `/ws` — `{"type":"subscribe","serverCode":"..."}` | Live position pushes |
 
----
-
-## API Endpoints Summary
-
-### Roblox Server → API (Bearer token)
-
-| Method | Endpoint | Purpose |
-|--------|----------|---------|
-| POST | `/api/servers/:code/heartbeat` | Send player list, receive commands |
-| POST | `/api/servers/:code/positions` | Stream player positions for map |
-| POST | `/api/servers/:code/addlocation` | Add location marker to map |
-| POST | `/api/servers/:code/meta` | Update server name / join code |
-| POST | `/api/servers/:code/admins` | Update admin list |
-| DELETE | `/api/servers/:code` | Signal server shutdown |
-| POST | `/api/tracking/join` | Player joined |
-| POST | `/api/tracking/leave` | Player left |
-| POST | `/api/tracking/shots` | Shots fired event |
-| POST | `/api/tracking/robbery` | Robbery started |
-| POST | `/api/tracking/teamchange` | Team changed |
-| POST | `/api/tracking/phonecall` | Phone call event |
-| POST | `/api/tracking/playerdown` | Player downed |
-| POST | `/api/tracking/inventory` | Update player inventory |
-| POST | `/api/punishments/ban` | Ban a player |
-| POST | `/api/punishments/unban` | Unban a player |
-| POST | `/api/punishments/kick` | Kick a player |
-| POST | `/api/punishments/warn` | Warn a player |
-| POST | `/api/punishments/unwarn` | Remove a warning |
-| POST | `/api/punishments/freeze` | Toggle freeze |
-| POST | `/api/punishments/log` | Log a punishment (no command) |
-
-### Dashboard → API (session-based)
-
-| Method | Endpoint | Purpose |
-|--------|----------|---------|
-| GET | `/api/servers/list` | List online servers I can moderate |
-| GET | `/api/servers/:code` | Server details |
-| GET | `/api/servers/:code/players` | Player list |
-| POST | `/api/servers/:code/commands` | Issue command (kick, ban, etc.) |
-| POST | `/api/servers/:code/schedule-shutdown` | Schedule shutdown |
-| DELETE | `/api/servers/:code/schedule-shutdown` | Cancel shutdown |
-| GET/POST | `/api/servers/:code/chat` | Session admin chat |
-| POST | `/api/admin/duty` | Start/break/stop shift |
-| GET | `/api/admin/staff` | Get staff list |
-| GET | `/api/punishments/warns/:userId` | Get all warns |
-| GET | `/api/punishments/list?type=ban` | Get punished users |
-| GET | `/api/audit/:code` | Get audit logs |
-| PATCH | `/api/audit/:code/:logId` | Revoke audit entry |
-| GET/POST | `/api/serverkeys/:code` | API key management |
-| POST | `/api/serverkeys/:code/regenerate` | Regenerate API key |
+Every server-scoped GET/POST now expects `senderId` (or `userId`) as a
+query or body param — this hasn't changed from before, just enforced
+correctly now.
 
 ---
 
-## Map Normalization
+## Known limitation (by design, not a bug)
 
-To convert in-game coordinates to map image percentages:
-
-```js
-function worldToMap(x, z, bounds) {
-  const left = ((x - bounds.X_min) / (bounds.X_max - bounds.X_min)) * 100;
-  const top  = ((z - bounds.Z_min) / (bounds.Z_max - bounds.Z_min)) * 100;
-  return { left, top }; // use as CSS left% and top%
-}
-```
+The empty-server grace timer is driven by heartbeat data (arriving every
+`heartbeatInterval` seconds), not a dedicated "last player left" event
+from Lua. With the default 2s heartbeat interval this is a close
+approximation of your described behavior but isn't perfectly event-driven
+down to the millisecond. A truly instant version would need Lua to push a
+one-off "server is now empty" ping the moment `PlayerRemoving` fires —
+happy to add that in the Roblox-module pass if you want it tighter.
 
 ---
 
-## Discord Integration
+## Next steps
 
-Set `DiscordWebhookUrl` in `.env`. The following events auto-forward as embeds:
-- Player join / leave
-- Ban / unban
-- Kick  
-- Warn
-- Team changed
+**Part 2 — Frontend:** side menu (Main / Staff Status / Punished Users /
+Stats / Staff Activity / API Key as full standalone panels), collapsible
+panels, toggleable session chat with unread badge, hold-button restyle,
+light mode fix, member list tags + search, Punishment/Commands submenus
+(Health + Message), map pan/zoom + WebSocket client + tween
+interpolation, audit log map-preview on click, Lock/Unlock UI, docs
+content pruning + side menu fix, and removing the raw `serverCode` from
+any visible UI text in favor of `maskedServerCode`.
 
----
+**Part 3 — Roblox module:** `Init`/`Deinit`, self-generated key +
+`SetApiKey(old, new)` handshake with `/api/servers/setkey`, fetch
+`/api/config` instead of hardcoding values, health/lock/unlock command
+handling, and send `health`/`maxHealth` in the heartbeat payload.
 
-## Session Persistence
-
-Sessions are stored in `sessionStorage` — they persist across page refreshes within the same tab but are cleared when the tab/browser is closed. This is intentional for security.
-
----
-
-## Security Notes
-
-- All Roblox server requests require the `Authorization: Bearer <ApiToken>` header.
-- Dashboard actions require an active OAuth session (Roblox login).
-- Admin access is controlled by the `ALLOWED_ADMINS` / `SERVER_OWNERS` arrays in `state.js`.
-- The server API key (for per-server auth) can be regenerated by the owner with a 15-minute cooldown.
-- Rate limiting: 45 requests per 10 seconds per IP on moderation endpoints.
-
----
-
-## Extending
-
-**Add a new game event:**
-1. Add a route in `Backend/routes/tracking.js`
-2. Call `pushAuditLog(serverCode, { type: 'my_event', ... })`
-3. Add the icon + title handler in `Frontend/Api/Dashboard/app.js` → `AuditLog.icon()` and `AuditLog.title()`
-4. Add the Shield function in `RobloxModule/ShieldModule.lua`
-
-**Add a new punishment type:**
-1. Add the endpoint in `Backend/routes/punishments.js`
-2. Add the action in `Frontend/Api/Dashboard/app.js` → `Actions`
-3. Add a button in `Modals.playerModal()`
+Reply whenever you're ready and I'll move on to Part 2.

@@ -4,7 +4,7 @@
   "description": "Emergency Hamburg API Backend",
   "main": "server.js",
   "scripts": {
-    "start": "node Backend/server.js",
+    "start": "node server.js",
     "dev": "nodemon server.js"
   },
   "dependencies": {

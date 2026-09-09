@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>404 — Emergency Hamburg API</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+<style>
+    :root {
+        --bg: #08090f; --surface: #0f1120; --border: rgba(255,255,255,0.07);
+        --text: #e2e6f0; --muted: #6b7280; --accent: #60a5fa;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+        font-family: 'Inter', system-ui, sans-serif;
+        background: var(--bg); color: var(--text);
+        min-height: 100vh; display: flex; align-items: center; justify-content: center;
+        text-align: center; padding: 2rem;
+    }
+    .code {
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 5rem; font-weight: 700;
+        background: linear-gradient(135deg, #60a5fa, #38bdf8);
+        -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+        line-height: 1;
+    }
+    h1 { font-size: 1.1rem; font-weight: 600; margin-top: 0.75rem; }
+    p { color: var(--muted); font-size: 0.9rem; margin-top: 0.5rem; max-width: 380px; }
+    a {
+        display: inline-block; margin-top: 1.75rem;
+        background: rgba(96,165,250,0.1); border: 1px solid rgba(96,165,250,0.25);
+        color: var(--accent); text-decoration: none;
+        font-size: 0.85rem; font-weight: 500;
+        padding: 9px 20px; border-radius: 8px;
+        transition: background 0.15s;
+    }
+    a:hover { background: rgba(96,165,250,0.18); }
+</style>
+</head>
+<body>
+    <div>
+        <div class="code">404</div>
+        <h1>This page doesn't exist</h1>
+        <p>The page you're looking for isn't here. You can head back to the official site instead.</p>
+        <a href="/Api">Go to Emergency Hamburg API</a>
+    </div>
+</body>
+</html>
