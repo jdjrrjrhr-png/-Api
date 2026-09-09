@@ -54,7 +54,7 @@ const serversRouter = require('./routes/servers');
 app.post('/api/admin/duty',         serversRouter);
 app.get('/api/admin/staff',         serversRouter);
 app.post('/api/admin/disconnect',   require('./routes/auth'));
-=======
+
 const authRouter    = require('./routes/auth');
 const serversRouter  = require('./routes/servers');
 
@@ -83,15 +83,15 @@ app.post('/api/admin/disconnect', (req, res, next) => {
     req.url = '/disconnect';
     authRouter.handle(req, res, next);
 });
->>>>>>> 501d14fad6ebeba281d4fbd01648110ed25e3981
+
 
 // ─── SPA FALLBACK ─────────────────────────────────────────────
 // Serve index.html for all /Api/* routes (client-side routing)
-<<<<<<< HEAD
+
 app.get('/Api*', (req, res) => {
-=======
+
 app.get(/^\/Api/i, (req, res) => {
->>>>>>> 501d14fad6ebeba281d4fbd01648110ed25e3981
+
     res.sendFile(path.join(frontendPath, 'Api', 'index.html'));
 });
 
