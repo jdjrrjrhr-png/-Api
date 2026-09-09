@@ -26,25 +26,23 @@ const imgPath = path.join(__dirname, '..', 'img');
 app.use('/img', express.static(imgPath));
 
 // ─── ROUTES ───────────────────────────────────────────────────
-app.use('/oauth',           require('./routes/auth'));
-app.use('/api/auth',        require('./routes/auth'));
-app.use('/api/servers',     require('./routes/servers'));
-app.use('/api/punishments', require('./routes/punishments'));
-app.use('/api/tracking',    require('./routes/tracking'));
-app.use('/api/audit',       require('./routes/audit'));
-app.use('/api/serverkeys',  require('./routes/serverkeys'));
+app.use('/oauth',             require('./routes/auth'));
+app.use('/api/auth',          require('./routes/auth'));
+app.use('/api/servers',       require('./routes/servers'));
+app.use('/api/punishments',   require('./routes/punishments'));
+app.use('/api/tracking',      require('./routes/tracking'));
+app.use('/api/audit',         require('./routes/audit'));
+app.use('/api/serverkeys',    require('./routes/serverkeys'));
 
 // Duty + staff (mounted on /api/admin for backwards compat)
-app.use('/api/admin',       require('./routes/servers'));
-app.post('/api/admin/disconnect', require('./routes/auth'));
+const serversRouter = require('./routes/servers');
+app.post('/api/admin/duty',         serversRouter);
+app.get('/api/admin/staff',         serversRouter);
+app.post('/api/admin/disconnect',   require('./routes/auth'));
 
 // ─── SPA FALLBACK ─────────────────────────────────────────────
-// Serve index.html for all /Api/* or /api/* routes (client-side routing)
-// ─── SPA FALLBACK ─────────────────────────────────────────────
 // Serve index.html for all /Api/* routes (client-side routing)
-// ─── SPA FALLBACK ─────────────────────────────────────────────
-// Serve index.html for all /Api routes (client-side routing)
-app.get(/^\/Api/i, (req, res) => {
+app.get('/Api*', (req, res) => {
     res.sendFile(path.join(frontendPath, 'Api', 'index.html'));
 });
 
