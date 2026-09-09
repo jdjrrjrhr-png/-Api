@@ -1,6 +1,7 @@
 'use strict';
 
-const path = require('path');
+const fs        = require('fs');
+const path      = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const express      = require('express');
@@ -10,8 +11,6 @@ const { initWebSocket } = require('./ws');
 
 const app = express();
 
-<<<<<<< HEAD
-=======
 // ─── SHARED CONFIG ─────────────────────────────────────────────
 let appConfig = {};
 try {
@@ -21,7 +20,6 @@ try {
 }
 app.locals.config = appConfig;
 
->>>>>>> aabea97d2e1b9a8f35625f0d03d1070a9d9765ad
 // ─── MIDDLEWARE ───────────────────────────────────────────────
 app.use(express.json({ limit: '10mb' }));
 app.use(cookieParser());
@@ -38,19 +36,6 @@ app.use(express.static(frontendPath));
 const imgPath = path.join(__dirname, '..', 'img');
 app.use('/img', express.static(imgPath));
 
-<<<<<<< HEAD
-// ─── ROUTES ───────────────────────────────────────────────────
-// NOTE: previously /api/admin/duty and /api/admin/staff were mounted by
-// passing the servers router directly into app.post()/app.get() as a
-// bare middleware — that never actually matched (a sub-router needs
-// app.use(prefix, router) to have its internal routes reachable). This
-// was the real cause of "Staff Status stuck on Loading forever": every
-// call to those two endpoints silently fell through to a 404. Duty and
-// staff endpoints now live properly under /api/servers/* below.
-app.use('/oauth',           require('./routes/auth'));
-app.use('/api/auth',        require('./routes/auth'));
-app.use('/api/servers',     require('./routes/servers'));
-=======
 app.get('/config.json', (req, res) => res.json(appConfig));
 
 // ─── ROUTES & ROUTERS ─────────────────────────────────────────
@@ -60,14 +45,11 @@ const serversRouter = require('./routes/servers');
 app.use('/oauth',           authRouter);
 app.use('/api/auth',        authRouter);
 app.use('/api/servers',     serversRouter);
->>>>>>> aabea97d2e1b9a8f35625f0d03d1070a9d9765ad
 app.use('/api/punishments', require('./routes/punishments'));
 app.use('/api/tracking',    require('./routes/tracking'));
 app.use('/api/audit',       require('./routes/audit'));
 app.use('/api/serverkeys',  require('./routes/serverkeys'));
-<<<<<<< HEAD
 app.use('/api/config',      require('./routes/config'));
-=======
 
 // Duty + staff legacy aliases
 app.post('/api/admin/duty', (req, res, next) => {
@@ -82,24 +64,17 @@ app.post('/api/admin/disconnect', (req, res, next) => {
     req.url = '/disconnect';
     authRouter.handle(req, res, next);
 });
->>>>>>> aabea97d2e1b9a8f35625f0d03d1070a9d9765ad
 
 // ─── SPA FALLBACK ─────────────────────────────────────────────
 app.get(/^\/Api/i, (req, res) => {
     res.sendFile(path.join(frontendPath, 'Api', 'index.html'));
 });
 
-<<<<<<< HEAD
-// ─── 404 ──────────────────────────────────────────────────────
-// Any route outside /Api and outside the API surface gets a friendly
-// page pointing back to /Api instead of Express's bare "Cannot GET /".
-=======
 app.get('/', (req, res) => {
     res.redirect('/Api');
 });
 
 // ─── 404 HANDLER ──────────────────────────────────────────────
->>>>>>> aabea97d2e1b9a8f35625f0d03d1070a9d9765ad
 app.use((req, res) => {
     if (req.path.startsWith('/api/') || req.path.startsWith('/oauth/')) {
         return res.status(404).json({ error: 'Not found' });
