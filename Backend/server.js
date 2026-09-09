@@ -40,7 +40,7 @@ app.use('/img', express.static(imgPath));
 app.get('/config.json', (req, res) => res.json(appConfig));
 
 // ─── ROUTES ───────────────────────────────────────────────────
-<<<<<<< HEAD
+
 app.use('/oauth',             require('./routes/auth'));
 app.use('/api/auth',          require('./routes/auth'));
 app.use('/api/servers',       require('./routes/servers'));
