@@ -505,6 +505,14 @@ a { color: inherit; text-decoration: none; }
     color: var(--muted); font-size: 0.8rem; text-align: center;
     padding: 1rem;
     border-radius: var(--radius);
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+=======
+    z-index: 4;
+    pointer-events: none;
+>>>>>>> 501d14fad6ebeba281d4fbd01648110ed25e3981
+>>>>>>> aabea97d2e1b9a8f35625f0d03d1070a9d9765ad
 }
 .map-player-marker {
     position: absolute;

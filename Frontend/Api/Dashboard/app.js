@@ -1011,14 +1011,88 @@ const MapView = {
         return { left: Math.min(100, Math.max(0, left)), top: Math.min(100, Math.max(0, top)) };
     },
 
+<<<<<<< HEAD
+=======
+    /* ── PAN / ZOOM ── */
+    initInteraction() {
+        const container = document.getElementById('map-container');
+        const wrap = document.getElementById('map-zoom-wrap');
+        if (!container || !wrap) return;
+
+        MapView._zoom = 1; MapView._panX = 0; MapView._panY = 0;
+        MapView._applyTransform();
+
+        container.onwheel = (e) => {
+            e.preventDefault();
+            MapView.zoomBy(e.deltaY < 0 ? 0.15 : -0.15);
+        };
+
+        container.onmousedown = (e) => {
+            MapView._dragging = true;
+            container.classList.add('grabbing');
+            MapView._dragStart = { x: e.clientX, y: e.clientY, panX: MapView._panX, panY: MapView._panY };
+        };
+        window.addEventListener('mousemove', MapView._onDragMove);
+        window.addEventListener('mouseup', MapView._onDragEnd);
+
+        // Basic touch support (pan only — pinch zoom omitted for simplicity)
+        container.ontouchstart = (e) => {
+            if (e.touches.length !== 1) return;
+            MapView._dragging = true;
+            MapView._dragStart = { x: e.touches[0].clientX, y: e.touches[0].clientY, panX: MapView._panX, panY: MapView._panY };
+        };
+        container.ontouchmove = (e) => {
+            if (!MapView._dragging || e.touches.length !== 1) return;
+            const dx = e.touches[0].clientX - MapView._dragStart.x;
+            const dy = e.touches[0].clientY - MapView._dragStart.y;
+            MapView._panX = MapView._dragStart.panX + dx;
+            MapView._panY = MapView._dragStart.panY + dy;
+            MapView._applyTransform();
+        };
+        container.ontouchend = () => { MapView._dragging = false; };
+    },
+
+    _onDragMove(e) {
+        if (!MapView._dragging) return;
+        const dx = e.clientX - MapView._dragStart.x;
+        const dy = e.clientY - MapView._dragStart.y;
+        MapView._panX = MapView._dragStart.panX + dx;
+        MapView._panY = MapView._dragStart.panY + dy;
+        MapView._applyTransform();
+    },
+
+    _onDragEnd() {
+        MapView._dragging = false;
+        document.getElementById('map-container')?.classList.remove('grabbing');
+    },
+
+    zoomBy(delta) {
+        MapView._zoom = Math.max(1, Math.min(4, MapView._zoom + delta));
+        if (MapView._zoom === 1) { MapView._panX = 0; MapView._panY = 0; }
+        MapView._applyTransform();
+    },
+
+    resetView() {
+        MapView._zoom = 1; MapView._panX = 0; MapView._panY = 0;
+        MapView._applyTransform();
+    },
+
+    _applyTransform() {
+        const wrap = document.getElementById('map-zoom-wrap');
+        if (!wrap) return;
+        wrap.style.transform = `translate(${MapView._panX}px, ${MapView._panY}px) scale(${MapView._zoom})`;
+    },
+
+>>>>>>> aabea97d2e1b9a8f35625f0d03d1070a9d9765ad
     updateOverlay(playerCount) {
         const overlay = document.getElementById('map-overlay');
         const badge   = document.getElementById('map-status-badge');
         if (!overlay) return;
 
-        if (playerCount < 10) {
+        const minPlayers = App.config?.mapMinPlayers ?? 10;
+        if (playerCount < minPlayers) {
             overlay.style.display = 'flex';
-            overlay.textContent = `At least 10 players needed (${playerCount} online)`;
+            overlay.textContent = `At least ${minPlayers} players needed (${playerCount} online)`;
             if (badge) badge.textContent = 'Inactive';
         } else {
             overlay.style.display = 'none';
@@ -1125,6 +1199,62 @@ const MapView = {
 /* ================================================================
    MODALS
 ================================================================ */
+<<<<<<< HEAD
+=======
+const PanelUtil = {
+    toggle(panelId, evt) {
+        if (evt && evt.target.closest('button') && !evt.target.closest('.panel-collapse-btn')) return;
+        const panel = document.getElementById(panelId);
+        if (!panel) return;
+        panel.classList.toggle('collapsed');
+    }
+};
+
+/* ================================================================
+   SIDE MENU (Main / Staff Status / Punished Users / API Key)
+================================================================ */
+const SideMenu = {
+    _open: false,
+
+    toggle() {
+        SideMenu._open ? SideMenu.close() : SideMenu.openMenu();
+    },
+
+    openMenu() {
+        SideMenu._open = true;
+        const isOwner = State.user?.role === 'owner';
+        const extra = document.createElement('div');
+        extra.id = 'side-menu-root';
+        extra.innerHTML = `
+        <div class="side-menu-overlay" onclick="SideMenu.close()"></div>
+        <div class="side-menu-panel">
+            <div class="side-menu-title">Navigate</div>
+            <button class="side-menu-item active" onclick="SideMenu.close()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                Main
+            </button>
+            <button class="side-menu-item" onclick="SideMenu.close();Modals.staffStatusFull()">
+                ${UI.icon('users')}
+                Staff Status
+            </button>
+            <button class="side-menu-item" onclick="SideMenu.close();Modals.punishedUsers()">
+                ${UI.icon('ban')}
+                Punished Users
+            </button>
+            ${isOwner ? `<button class="side-menu-item" onclick="SideMenu.close();Modals.apiKey()">
+                ${UI.icon('key')}
+                API Key
+            </button>` : ''}
+        </div>`;
+        document.body.appendChild(extra);
+    },
+
+    close() {
+        SideMenu._open = false;
+        document.getElementById('side-menu-root')?.remove();
+    }
+};
+>>>>>>> aabea97d2e1b9a8f35625f0d03d1070a9d9765ad
 const Modals = {
     show(html, cls = '') {
         const root = document.getElementById('modal-root');
