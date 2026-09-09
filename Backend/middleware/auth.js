@@ -1,14 +1,57 @@
 'use strict';
 
-const { ALLOWED_ADMINS, INGAME_MODS, SERVER_OWNERS, activeAdmins, liveServers } = require('../state');
+const { adminRoster, serverStaff, activeAdmins, liveServers, serverApiKeys, apiKeyGrace } = require('../state');
 
-/** Verify Bearer token from Roblox server */
+/** Legacy static token — kept only for any not-yet-migrated internal call.
+ *  Every Roblox-facing, per-server route should use verifyServerApiKey instead. */
 function verifyRobloxToken(req, res, next) {
     const authHeader = req.headers['authorization'];
     if (!authHeader || authHeader !== `Bearer ${process.env.ApiToken}`) {
         return res.status(401).json({ error: 'Unauthorized' });
     }
     next();
+}
+
+/**
+ * Verify the caller is the live Roblox server for THIS serverCode, using that
+ * server's own rotating API key (not a single shared secret for every server).
+ *
+ * - First contact for a serverCode with no stored key yet -> bootstraps (registers
+ *   whatever key is presented as the server's key). This lets a fresh server or the
+ *   Roblox-side Init command register its own generated key on first run.
+ * - If the key was just rotated (owner regenerated it from the dashboard, or the
+ *   Roblox module itself rotated it via /rotate-key), the OLD key still validates
+ *   for a short grace window so an in-flight heartbeat cycle doesn't 401 and spiral
+ *   into retries/disconnects.
+ */
+function verifyServerApiKey(req, res, next) {
+    const serverCode = req.params.serverCode || req.body?.serverCode;
+    if (!serverCode) return res.status(400).json({ error: 'serverCode required' });
+
+    const authHeader = req.headers['authorization'] || '';
+    const presented = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    if (!presented) return res.status(401).json({ error: 'Unauthorized' });
+
+    const stored = serverApiKeys[serverCode];
+    if (!stored) {
+        // First time we've ever heard from this server code — bootstrap its key.
+        serverApiKeys[serverCode] = { key: presented, generatedAt: Date.now() };
+        req.serverCode = serverCode;
+        return next();
+    }
+
+    if (presented === stored.key) {
+        req.serverCode = serverCode;
+        return next();
+    }
+
+    const grace = apiKeyGrace[serverCode];
+    if (grace && grace.previousKey === presented && grace.expiresAt > Date.now()) {
+        req.serverCode = serverCode;
+        return next();
+    }
+
+    return res.status(401).json({ error: 'Invalid or outdated API key' });
 }
 
 /** Verify that the caller is a known admin via userId in body/query */
@@ -20,20 +63,27 @@ function verifyAdminAccess(req, res, next) {
     if (!userId || isNaN(userId)) {
         return res.status(403).json({ error: 'Admin ID required' });
     }
-    if (!ALLOWED_ADMINS.includes(userId) && !INGAME_MODS.includes(userId) && !SERVER_OWNERS.includes(userId)) {
+
+    const isGlobalAdmin = adminRoster.globalAdmins.has(userId);
+    const isAnyOwner = Object.values(serverStaff).some(s => s.ownerId === userId);
+    const isAnyMod   = Object.values(serverStaff).some(s => s.mods.has(userId));
+
+    if (!isGlobalAdmin && !isAnyOwner && !isAnyMod) {
         return res.status(403).json({ error: 'Unauthorized access' });
     }
     req.adminId = userId;
     next();
 }
 
-/** Verify server owner only */
+/** Verify server owner only — scoped to the serverCode in the request */
 function verifyOwnerAccess(req, res, next) {
+    const serverCode = req.params.serverCode || req.body?.serverCode;
     const userId = parseInt(
         req.body?.senderId || req.body?.userId ||
         req.query?.senderId || req.query?.userId
     );
-    if (!userId || !SERVER_OWNERS.includes(userId)) {
+    const staff = serverCode ? serverStaff[serverCode] : null;
+    if (!userId || !staff || staff.ownerId !== userId) {
         return res.status(403).json({ error: 'Owner access required' });
     }
     req.adminId = userId;
@@ -73,17 +123,25 @@ setInterval(() => {
     });
 }, 30000);
 
-/** Determine role for a userId */
-function getUserRole(userId) {
+/** Determine role for a userId. Pass serverCode to resolve server-scoped owner/mod correctly. */
+function getUserRole(userId, serverCode) {
     const id = parseInt(userId);
-    if (SERVER_OWNERS.includes(id)) return 'owner';
-    if (ALLOWED_ADMINS.includes(id)) return 'admin';
-    if (INGAME_MODS.includes(id)) return 'mod';
+
+    if (serverCode) {
+        const staff = serverStaff[serverCode];
+        if (staff && staff.ownerId === id) return 'owner';
+        if (staff && staff.mods.has(id)) return 'mod';
+    }
+
+    if (Object.values(serverStaff).some(s => s.ownerId === id)) return 'owner';
+    if (adminRoster.globalAdmins.has(id)) return 'admin';
+    if (Object.values(serverStaff).some(s => s.mods.has(id))) return 'mod';
     return 'user';
 }
 
 module.exports = {
     verifyRobloxToken,
+    verifyServerApiKey,
     verifyAdminAccess,
     verifyOwnerAccess,
     verifyOnDuty,

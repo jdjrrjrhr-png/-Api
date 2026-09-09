@@ -5,10 +5,25 @@
  * All routes import from here to share state without circular deps.
  */
 
-// --- ADMIN LISTS (edit these) ---
-const ALLOWED_ADMINS = [2748615471, 9801416277];
-const INGAME_MODS   = [2748615471, 9801416277];
-const SERVER_OWNERS = [2748615471];
+// --- ADMIN ROSTER (dynamic — no more hardcoded lists) ---
+// This used to be 3 hardcoded arrays that were completely disconnected from the
+// UpdateAdmins / SetOwner commands sent by the Roblox module. Editing those arrays
+// (or removing an ID from them) never matched what UpdateAdmins actually did, which
+// is how an owner could get locked out of their own dashboard. Now everything is
+// driven by two live commands from the Roblox module:
+//   - POST /:serverCode/admins   (UpdateAdmins)  -> sets global admins + this server's mods
+//   - POST /:serverCode/owner    (SetOwner)      -> sets this server's owner
+const adminRoster = {
+    globalAdmins: new Set()   // userIds with admin access across every server
+};
+const serverStaff = {};       // serverCode -> { mods: Set<userId>, ownerId: number|null }
+
+function getServerStaff(serverCode) {
+    if (!serverStaff[serverCode]) {
+        serverStaff[serverCode] = { mods: new Set(), ownerId: null };
+    }
+    return serverStaff[serverCode];
+}
 
 // --- LIVE STATE ---
 const liveServers     = {};  // serverCode -> server data
@@ -23,10 +38,12 @@ const banStore        = {};  // userId -> ban object
 const freezeStore     = {};  // userId -> freeze object
 const inventoryStore  = {};  // serverCode+userId -> inventory array
 const sessionChat     = {};  // serverCode -> Array (max 30, ephemeral)
-const serverApiKeys   = {};  // serverCode -> { key, generatedAt, cooldownUntil }
+const serverApiKeys   = {};  // serverCode -> { key, generatedAt }
+const apiKeyGrace     = {};  // serverCode -> { previousKey, expiresAt } (rotation grace window)
 const serverMeta      = {};  // serverCode -> { name, joinCode, ownerId }
 const serverLocations = {};  // serverCode -> Array of location markers
 const apiKeyRegenCooldowns = {}; // serverCode -> timestamp
+const dutyCooldowns   = {};  // userId -> timestamp of last duty action (anti-spam)
 
 // --- HELPERS ---
 function getOrInitServer(serverCode) {
@@ -68,10 +85,31 @@ function generateCaseId() {
     return id;
 }
 
+// Stronger, more complex API key: 5 segments, each char randomly upper/lower/digit/symbol,
+// and guaranteed not to collide with any key currently in use.
+const API_KEY_SYMBOLS = '!@#$';
+function generateServerApiKeyRaw() {
+    const pools = [
+        'ABCDEFGHIJKLMNOPQRSTUVWXYZ', // capital
+        'abcdefghijklmnopqrstuvwxyz', // small
+        '0123456789',                 // digit
+        API_KEY_SYMBOLS               // symbol
+    ];
+    const randChar = () => {
+        const pool = pools[Math.floor(Math.random() * pools.length)];
+        return pool[Math.floor(Math.random() * pool.length)];
+    };
+    const seg = () => Array.from({ length: 5 }, randChar).join('');
+    return `${seg()}-${seg()}-${seg()}-${seg()}-${seg()}`;
+}
+
 function generateServerApiKey() {
-    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-    const seg = () => Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
-    return `${seg()}-${seg()}-${seg()}-${seg()}`;
+    const inUse = new Set(Object.values(serverApiKeys).map(k => k.key));
+    let key;
+    do {
+        key = generateServerApiKeyRaw();
+    } while (inUse.has(key));
+    return key;
 }
 
 function formatDuration(seconds) {
@@ -89,9 +127,9 @@ function formatDuration(seconds) {
 }
 
 module.exports = {
-    ALLOWED_ADMINS,
-    INGAME_MODS,
-    SERVER_OWNERS,
+    adminRoster,
+    serverStaff,
+    getServerStaff,
     liveServers,
     commandsQueue,
     oauthStates,
@@ -105,9 +143,11 @@ module.exports = {
     inventoryStore,
     sessionChat,
     serverApiKeys,
+    apiKeyGrace,
     serverMeta,
     serverLocations,
     apiKeyRegenCooldowns,
+    dutyCooldowns,
     getOrInitServer,
     pushAuditLog,
     pushSessionChat,
