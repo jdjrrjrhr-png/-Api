@@ -963,7 +963,7 @@ const Chat = {
         if (isAtBottom) el.scrollTop = el.scrollHeight;
     },
 
-    async send() {
+   async send() {
         const input = document.getElementById('chat-input');
         const msg   = input?.value.trim();
         if (!msg) return;
@@ -1004,15 +1004,12 @@ const MapView = {
     },
 
     worldToMap(x, z) {
-        // Read bounds from config.json (hardcoded here, matching config.json)
-        const X_min = -800, X_max = 800, Z_min = -800, Z_max = 800;
-        const left = ((x - X_min) / (X_max - X_min)) * 100;
-        const top  = ((z - Z_min) / (Z_max - Z_min)) * 100;
+        const bounds = App.config?.mapBounds || { X_min: -800, X_max: 800, Z_min: -800, Z_max: 800 };
+        const left = ((x - bounds.X_min) / (bounds.X_max - bounds.X_min)) * 100;
+        const top  = ((z - bounds.Z_min) / (bounds.Z_max - bounds.Z_min)) * 100;
         return { left: Math.min(100, Math.max(0, left)), top: Math.min(100, Math.max(0, top)) };
     },
 
-<<<<<<< HEAD
-=======
     /* ── PAN / ZOOM ── */
     initInteraction() {
         const container = document.getElementById('map-container');
@@ -1083,7 +1080,6 @@ const MapView = {
         wrap.style.transform = `translate(${MapView._panX}px, ${MapView._panY}px) scale(${MapView._zoom})`;
     },
 
->>>>>>> aabea97d2e1b9a8f35625f0d03d1070a9d9765ad
     updateOverlay(playerCount) {
         const overlay = document.getElementById('map-overlay');
         const badge   = document.getElementById('map-status-badge');
@@ -1167,7 +1163,7 @@ const MapView = {
 
         layer.innerHTML = (locations || []).flatMap(loc => {
             return (loc.positions || []).map(pos => {
-                const { left, top } = MapView.worldToMap(pos.x || pos.x, pos.z || pos.y);
+                const { left, top } = MapView.worldToMap(pos.x, pos.z ?? pos.y);
                 return `<div class="map-location-marker" style="left:${left}%;top:${top}%">
                     <div class="map-location-dot">${loc.name.slice(0,2)}</div>
                     <div class="map-location-label">${loc.text || loc.name}</div>
@@ -1197,10 +1193,8 @@ const MapView = {
 };
 
 /* ================================================================
-   MODALS
+   UTILITIES & SIDE MENU
 ================================================================ */
-<<<<<<< HEAD
-=======
 const PanelUtil = {
     toggle(panelId, evt) {
         if (evt && evt.target.closest('button') && !evt.target.closest('.panel-collapse-btn')) return;
@@ -1210,9 +1204,6 @@ const PanelUtil = {
     }
 };
 
-/* ================================================================
-   SIDE MENU (Main / Staff Status / Punished Users / API Key)
-================================================================ */
 const SideMenu = {
     _open: false,
 
@@ -1254,7 +1245,10 @@ const SideMenu = {
         document.getElementById('side-menu-root')?.remove();
     }
 };
->>>>>>> aabea97d2e1b9a8f35625f0d03d1070a9d9765ad
+
+/* ================================================================
+   MODALS
+================================================================ */
 const Modals = {
     show(html, cls = '') {
         const root = document.getElementById('modal-root');
@@ -1309,8 +1303,8 @@ const Modals = {
             ${player.pos ? `<img class="player-dot" id="mini-dot"
                 src="${UI.avatar(player.userId)}"
                 style="left:${MapView.worldToMap(player.pos.x, player.pos.z).left}%;top:${MapView.worldToMap(player.pos.x, player.pos.z).top}%;border-color:${player.teamColor||'#fff'}">` : ''}
-        </div>
-
+        </div>`);
+  
         <div class="modal-actions" style="margin-top:10px">
             <button class="modal-btn" onclick="Actions.bring(${player.userId}, '${player.name}')">
                 <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
